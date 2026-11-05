@@ -60,17 +60,13 @@ public struct SoloKineticWordView: View {
                     .transition(.opacity)
             }
             
-            // SOLO KINETIC WORD CANVAS WITH AMBIENT RIPPLES
+            // SOLO KINETIC WORD CANVAS (Clean, Pure White Dominant Typography)
             ZStack {
-                // RAM-Easy Ambient Sonic Ripples (GPU Accelerated, 0 CPU overhead)
-                AmbientSonicRipples(color: palette.accent)
-                    .opacity(wordToDisplay != nil ? 0.75 : 0.2)
-                
                 if let word = wordToDisplay {
                     Group {
                         switch variation {
                         case 0:
-                            // VARIATION 0: 🌌 Stranger Things Retro Cinematic Zoom (Ominous creeping zoom with vertical bottom gradient)
+                            // VARIATION 0: 🌌 Stranger Things Retro Cinematic Zoom
                             StrangerThingsZoomWordView(
                                 word: word,
                                 palette: palette,
@@ -85,7 +81,7 @@ public struct SoloKineticWordView: View {
                             )
                             
                         case 1:
-                            // VARIATION 1: 🌪️ 3D Kinetic Tumble (Somersault flip on X-Axis from above, ground shadow, spring settling)
+                            // VARIATION 1: 🌪️ 3D Kinetic Tumble
                             KineticTumbleWordView(
                                 word: word,
                                 palette: palette,
@@ -100,7 +96,7 @@ public struct SoloKineticWordView: View {
                             )
                             
                         case 2:
-                            // VARIATION 2: 🌫️ Ethereal Smoke & Ghost Dissolve (Emerges from starlight mist, vertical gradient, dissolves)
+                            // VARIATION 2: 🌫️ Ethereal Smoke & Ghost Dissolve
                             EtherealSmokeFadeWordView(
                                 word: word,
                                 palette: palette,
@@ -115,7 +111,7 @@ public struct SoloKineticWordView: View {
                             )
                             
                         case 3:
-                            // VARIATION 3: ⚡ Hyperspace Kinetic Impact (Lightspeed punch from depth with symmetrical vertical bloom)
+                            // VARIATION 3: ⚡ Hyperspace Kinetic Impact
                             HyperspaceImpactWordView(
                                 word: word,
                                 palette: palette,
@@ -130,7 +126,7 @@ public struct SoloKineticWordView: View {
                             )
                             
                         default:
-                            // VARIATION 4: 🎭 Prismatic Barrel Roll & Drift (3D horizontal spin on Y-Axis with pure vertical bottom gradient)
+                            // VARIATION 4: 🎭 Prismatic Barrel Roll & Drift
                             PrismaticRollWordView(
                                 word: word,
                                 palette: palette,
@@ -221,33 +217,6 @@ public struct SoloKineticWordView: View {
     }
 }
 
-// MARK: - RAM-Easy Ambient Sonic Ripples (GPU Accelerated Vector Rings)
-
-struct AmbientSonicRipples: View {
-    let color: Color
-    @State private var ripplePhase: CGFloat = 0.0
-    
-    var body: some View {
-        ZStack {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .strokeBorder(
-                        color.opacity(max(0, 0.32 - Double(index) * 0.08 - Double(ripplePhase) * 0.12)),
-                        lineWidth: 1.5
-                    )
-                    .scaleEffect(0.55 + CGFloat(index) * 0.35 + ripplePhase * 0.38)
-                    .blur(radius: 1.5 + CGFloat(index) * 2.0)
-            }
-        }
-        .frame(width: 320, height: 320)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
-                ripplePhase = 1.0
-            }
-        }
-    }
-}
-
 // MARK: - Dynamic Font Size Helper
 
 fileprivate func dynamicFontSize(for text: String) -> CGFloat {
@@ -281,42 +250,31 @@ struct StrangerThingsZoomWordView: View {
         let neonGlowColor = palette.accent
         
         ZStack {
-            // Deep Ambient 80s Neon Haze (Centered)
+            // Soft Ambient Glow (Centered & subtle)
             Text(word.text)
                 .font(fontChoice.font(size: size * 1.04, weight: .black, sectionName: sectionName))
                 .tracking(7.0)
-                .foregroundStyle(neonGlowColor.opacity(0.85))
-                .blur(radius: 42)
+                .foregroundStyle(neonGlowColor.opacity(0.45))
+                .blur(radius: 36)
                 .scaleEffect(isZooming ? 1.20 : 0.92)
             
-            // Secondary Mid-Glow Bloom (Vertical Gradient)
-            Text(word.text)
-                .font(fontChoice.font(size: size * 1.02, weight: .black, sectionName: sectionName))
-                .tracking(6.0)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [neonGlowColor, palette.primary],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .blur(radius: 14)
-                .scaleEffect(isZooming ? 1.15 : 0.90)
-            
-            // Hero Typography: Pure Top-to-Bottom Vertical Gradient (No right-side color tint)
+            // Hero Typography: >60% Pure Radiant White, bottom ~40% gentle accent dip
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(5.5)
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.white, Color.white.opacity(0.96), neonGlowColor.opacity(0.85)],
+                        stops: [
+                            .init(color: .white, location: 0.0),
+                            .init(color: .white, location: 0.62),
+                            .init(color: neonGlowColor.opacity(0.80), location: 1.0)
+                        ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: Color.white.opacity(0.9), radius: 12, x: 0, y: 0)
-                .shadow(color: neonGlowColor.opacity(0.95), radius: 32, x: 0, y: 0)
-                .shadow(color: palette.primary.opacity(0.8), radius: 55, x: 0, y: 0)
+                .shadow(color: Color.white.opacity(0.95), radius: 14, x: 0, y: 0)
+                .shadow(color: neonGlowColor.opacity(0.50), radius: 28, x: 0, y: 0)
                 .scaleEffect(isZooming ? 1.12 : 0.88)
                 .offset(y: isZooming ? -8 : 8)
         }
@@ -345,25 +303,28 @@ struct KineticTumbleWordView: View {
             // Ground plane depth shadow (Centered)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
-                .foregroundStyle(palette.accent.opacity(0.45))
-                .blur(radius: 24)
+                .foregroundStyle(palette.accent.opacity(0.35))
+                .blur(radius: 20)
                 .offset(y: isTumbled ? 28 : 50)
                 .scaleEffect(isTumbled ? 0.95 : 0.7)
             
-            // Hero Tumbling Word: Vertical Top-to-Bottom Gradient
+            // Hero Tumbling Word: >60% White, bottom ~40% accent
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(2.0)
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.white, palette.accent.opacity(0.9)],
+                        stops: [
+                            .init(color: .white, location: 0.0),
+                            .init(color: .white, location: 0.62),
+                            .init(color: palette.accent.opacity(0.80), location: 1.0)
+                        ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: Color.white.opacity(0.85), radius: 15, x: 0, y: 0)
-                .shadow(color: palette.accent.opacity(0.9), radius: 35, x: 0, y: 0)
-                .shadow(color: palette.primary.opacity(0.7), radius: 55, x: 0, y: 0)
+                .shadow(color: Color.white.opacity(0.92), radius: 14, x: 0, y: 0)
+                .shadow(color: palette.accent.opacity(0.50), radius: 30, x: 0, y: 0)
                 .rotation3DEffect(
                     .degrees(isTumbled ? 0 : -80),
                     axis: (x: 1, y: 0, z: 0),
@@ -397,24 +358,28 @@ struct EtherealSmokeFadeWordView: View {
             // Ambient Cloud Vapour Halo (Centered)
             Text(word.text)
                 .font(fontChoice.font(size: size * 1.08, weight: .black, sectionName: sectionName))
-                .foregroundStyle(palette.primary.opacity(0.75))
-                .blur(radius: isMaterialized ? 25 : 45)
+                .foregroundStyle(palette.primary.opacity(0.40))
+                .blur(radius: isMaterialized ? 22 : 40)
                 .scaleEffect(isMaterialized ? 1.05 : 1.4)
-                .opacity(isMaterialized ? 0.65 : 0.0)
+                .opacity(isMaterialized ? 0.50 : 0.0)
             
-            // Core Word: Pure Top-to-Bottom Vertical Gradient (No right-side color tint)
+            // Core Word: >60% White, bottom ~40% accent
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(3.5)
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.white, Color.white.opacity(0.95), palette.accent.opacity(0.8)],
+                        stops: [
+                            .init(color: .white, location: 0.0),
+                            .init(color: .white, location: 0.62),
+                            .init(color: palette.accent.opacity(0.75), location: 1.0)
+                        ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: Color.white.opacity(0.95), radius: 16, x: 0, y: 0)
-                .shadow(color: palette.accent.opacity(0.85), radius: 40, x: 0, y: 0)
+                .shadow(color: Color.white.opacity(0.95), radius: 14, x: 0, y: 0)
+                .shadow(color: palette.accent.opacity(0.45), radius: 28, x: 0, y: 0)
                 .blur(radius: isMaterialized ? 0 : 28)
                 .scaleEffect(isMaterialized ? 1.0 : 1.25)
                 .opacity(isMaterialized ? 1.0 : 0.0)
@@ -441,29 +406,32 @@ struct HyperspaceImpactWordView: View {
         let size = dynamicFontSize(for: word.text)
         
         ZStack {
-            // Vertical Symmetrical Depth Echo (Centered vertically, NO right-side offset)
+            // Vertical Symmetrical Depth Echo
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
-                .foregroundStyle(palette.accent.opacity(0.55))
+                .foregroundStyle(palette.accent.opacity(0.35))
                 .blur(radius: 8)
                 .offset(y: isImpacted ? 4 : 22)
                 .scaleEffect(isImpacted ? 1.0 : 1.3)
-                .opacity(isImpacted ? 0.6 : 0.0)
+                .opacity(isImpacted ? 0.5 : 0.0)
             
-            // Hero Word: Pure Top-to-Bottom Vertical Gradient
+            // Hero Word: >60% White, bottom ~40% accent
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(1.5)
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.white, Color.white.opacity(0.95), palette.accent.opacity(0.85)],
+                        stops: [
+                            .init(color: .white, location: 0.0),
+                            .init(color: .white, location: 0.62),
+                            .init(color: palette.accent.opacity(0.80), location: 1.0)
+                        ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: Color.white.opacity(0.95), radius: 16, x: 0, y: 0)
-                .shadow(color: palette.accent.opacity(0.9), radius: 42, x: 0, y: 0)
-                .shadow(color: palette.primary.opacity(0.75), radius: 65, x: 0, y: 0)
+                .shadow(color: Color.white.opacity(0.95), radius: 14, x: 0, y: 0)
+                .shadow(color: palette.accent.opacity(0.50), radius: 30, x: 0, y: 0)
                 .scaleEffect(isImpacted ? 1.0 : 1.5)
                 .opacity(isImpacted ? 1.0 : 0.0)
         }
@@ -489,27 +457,30 @@ struct PrismaticRollWordView: View {
         let size = dynamicFontSize(for: word.text)
         
         ZStack {
-            // Symmetrical Soft Ambient Flare (Centered, no right bias)
+            // Symmetrical Soft Ambient Flare (Centered)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
-                .foregroundStyle(palette.accent.opacity(0.45))
-                .blur(radius: 20)
+                .foregroundStyle(palette.accent.opacity(0.30))
+                .blur(radius: 18)
                 .scaleEffect(isRolled ? 1.05 : 0.9)
             
-            // Hero Word: Vertical Top-to-Bottom Gradient (No right-side color tint)
+            // Hero Word: >60% White, bottom ~40% accent
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(2.5)
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.white, Color.white.opacity(0.95), palette.accent.opacity(0.85)],
+                        stops: [
+                            .init(color: .white, location: 0.0),
+                            .init(color: .white, location: 0.62),
+                            .init(color: palette.accent.opacity(0.80), location: 1.0)
+                        ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: Color.white.opacity(0.92), radius: 15, x: 0, y: 0)
-                .shadow(color: palette.accent.opacity(0.85), radius: 36, x: 0, y: 0)
-                .shadow(color: palette.primary.opacity(0.65), radius: 55, x: 0, y: 0)
+                .shadow(color: Color.white.opacity(0.92), radius: 14, x: 0, y: 0)
+                .shadow(color: palette.accent.opacity(0.45), radius: 26, x: 0, y: 0)
                 .rotation3DEffect(
                     .degrees(isRolled ? 0 : 70),
                     axis: (x: 0, y: 1, z: 0),
