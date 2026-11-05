@@ -192,6 +192,30 @@ public struct SettingsView: View {
                     
                     Divider()
                     
+                    // Word Flow & Pacing Tempo
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("WORD FLOW & TEMPO PACING")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.secondary)
+                        
+                        HStack {
+                            Text(String(format: "Pacing Tempo: %.1fx (%@)", appState.pacingSpeedMultiplier, appState.pacingSpeedMultiplier < 0.85 ? "Ballad / Slow" : (appState.pacingSpeedMultiplier > 1.15 ? "Fast Pop / Rap" : "Normal")))
+                                .font(.system(size: 13, weight: .medium))
+                                .frame(width: 220, alignment: .leading)
+                            
+                            Slider(value: $appState.pacingSpeedMultiplier, in: 0.6...1.4, step: 0.05)
+                            
+                            Button("Reset") {
+                                appState.pacingSpeedMultiplier = 1.0
+                            }
+                        }
+                        
+                        Toggle("Auto Ballad Tempo (Stretches words in emotional / slow songs)", isOn: $appState.autoBalladPacing)
+                        Toggle("Group Short Phrases (Combines particles like 'to my', 'पे चले')", isOn: $appState.usePhraseChunking)
+                    }
+                    
+                    Divider()
+                    
                     // Manual Song Search
                     VStack(alignment: .leading, spacing: 10) {
                         Text("SEARCH & TEST ANY SONG")

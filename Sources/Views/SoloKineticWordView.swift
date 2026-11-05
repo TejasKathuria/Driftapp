@@ -10,9 +10,13 @@ public struct SoloKineticWordView: View {
     
     @ObservedObject var audioSync = AudioSyncEngine.shared
     @ObservedObject var acousticMatcher = AcousticVerseMatcher.shared
+    @ObservedObject var appState = AppState.shared
     
     public var body: some View {
-        let timedWords = line.timedWords
+        let timedWords = line.timedWords(
+            speedMultiplier: appState.pacingSpeedMultiplier,
+            chunkPhrases: appState.usePhraseChunking
+        )
         let activeWord = currentActiveWord(words: timedWords)
         let wordIndex = activeWord?.id ?? 0
         let variation = wordIndex % 4

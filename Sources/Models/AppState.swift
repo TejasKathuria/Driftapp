@@ -15,6 +15,11 @@ public final class AppState: ObservableObject {
     @Published public var karaokeProgressSweep: Bool = true
     @Published public var autoHideWhenPaused: Bool = false
     
+    // Lyrics pacing & word flow
+    @Published public var pacingSpeedMultiplier: Double = 1.0 // 0.6x (Ballad) to 1.4x (Pop)
+    @Published public var usePhraseChunking: Bool = false     // Combines short particles (e.g. "to my", "पे चले")
+    @Published public var autoBalladPacing: Bool = true       // Auto-stretches word cadence in slow songs
+    
     // Lyrics & active verse state
     @Published public var lyrics: ParsedLyrics? = nil
     @Published public var activeLineIndex: Int? = nil

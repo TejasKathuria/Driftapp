@@ -54,35 +54,93 @@ public struct LyricLine: Identifiable, Equatable {
     }
     
     public var timedWords: [TimedWord] {
+        return timedWords(speedMultiplier: 1.0, chunkPhrases: false)
+    }
+    
+    public func timedWords(speedMultiplier: Double = 1.0, chunkPhrases: Bool = false) -> [TimedWord] {
         let rawWords = text.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
         guard !rawWords.isEmpty else { return [] }
         
-        let totalDuration = max(endTime - startTime, 1.0)
-        let totalChars = max(rawWords.reduce(0) { $0 + max($1.count, 1) }, 1)
+        // Phrase chunking option: combine short particles (length <= 2 or vowels/prepositions)
+        let tokens: [String]
+        if chunkPhrases && rawWords.count >= 4 {
+            var grouped: [String] = []
+            var i = 0
+            while i < rawWords.count {
+                let current = rawWords[i]
+                if current.count <= 2 && i + 1 < rawWords.count {
+                    grouped.append("\(current) \(rawWords[i+1])")
+                    i += 2
+                } else if i > 0 && current.count <= 2 {
+                    let last = grouped.removeLast()
+                    grouped.append("\(last) \(current)")
+                    i += 1
+                } else {
+                    grouped.append(current)
+                    i += 1
+                }
+            }
+            tokens = grouped.isEmpty ? rawWords : grouped
+        } else {
+            tokens = rawWords
+        }
         
-        // Natural Singing Cadence Model:
-        // Singing cadence typically articulates words at ~0.35s to 0.55s per word.
-        // We calculate the active articulation window and leave the remaining tail of the line
-        // as vocal sustain / instrumental hold for the final word.
-        let naturalVocalDuration = min(totalDuration * 0.85, Double(rawWords.count) * 0.48)
-        let effectiveDuration = max(naturalVocalDuration, min(totalDuration, Double(rawWords.count) * 0.32))
+        let totalDuration = max(endTime - startTime, 1.2)
+        let tokenCount = tokens.count
+        let averageTimePerToken = totalDuration / Double(tokenCount)
+        
+        // Auto-detect slow ballads / emotional verses:
+        // In slow songs or Hindi/ballad tracks, lines last 5-8s with only 4-6 words (>0.85s/word).
+        let isBalladTempo = averageTimePerToken >= 0.85
+        
+        // Calculate weighted presence:
+        // 1. Script/syllable weight: Give non-Latin / Devanagari words higher base weight
+        // 2. The final word in a line almost always has vocal vibrato / sustain (give it 1.6x - 2.0x weight)
+        var weights: [Double] = []
+        for (i, token) in tokens.enumerated() {
+            var w = Double(max(token.count, 2))
+            
+            // Multilingual / complex script boost (Hindi, Japanese, etc.)
+            let hasNonASCII = token.unicodeScalars.contains { $0.value > 127 }
+            if hasNonASCII {
+                w *= 1.45
+            }
+            
+            // Final word sustain weight
+            if i == tokenCount - 1 && tokenCount > 1 {
+                w *= (isBalladTempo ? 2.0 : 1.5)
+            }
+            
+            weights.append(w)
+        }
+        
+        let totalWeight = max(weights.reduce(0, +), 1.0)
         
         var words: [TimedWord] = []
         var runningTime = startTime
         
-        for (index, word) in rawWords.enumerated() {
-            let weight = Double(max(word.count, 1)) / Double(totalChars)
-            let wordDur = effectiveDuration * weight
-            // The final word extends until the end of the line (sustain / musical hold)
-            let wordEnd = (index == rawWords.count - 1) ? endTime : (runningTime + wordDur)
+        // Allocate full line duration proportionally
+        for (index, token) in tokens.enumerated() {
+            let normalizedWeight = weights[index] / totalWeight
+            var tokenDuration = totalDuration * normalizedWeight
+            
+            // Apply pacing speed multiplier (e.g. 0.8x for slower, 1.2x for faster)
+            tokenDuration = tokenDuration / max(speedMultiplier, 0.4)
+            
+            // Minimum reading presence based on tempo:
+            // Ballad tempo guarantees words linger for at least 0.80s!
+            let minPresence = isBalladTempo ? min(1.10, averageTimePerToken * 0.70) : min(0.60, averageTimePerToken)
+            tokenDuration = max(tokenDuration, minPresence)
+            
+            let tokenEnd = (index == tokenCount - 1) ? endTime : min(runningTime + tokenDuration, endTime)
             
             words.append(TimedWord(
                 id: index,
-                text: word,
+                text: token,
                 startTime: runningTime,
-                endTime: wordEnd
+                endTime: max(tokenEnd, runningTime + 0.50)
             ))
-            runningTime = runningTime + wordDur
+            runningTime = tokenEnd
         }
         return words
     }
