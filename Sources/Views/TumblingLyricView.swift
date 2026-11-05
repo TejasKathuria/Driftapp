@@ -113,15 +113,6 @@ public struct TumblingLyricView: View {
                             ? AnyShapeStyle(palette.accentGradient)
                             : AnyShapeStyle(Color.black.opacity(0.45))
                     )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(
-                                isWordActive
-                                    ? palette.accent.opacity(0.8)
-                                    : Color.white.opacity(0.12),
-                                lineWidth: isWordActive ? 2 : 1
-                            )
-                    )
                     .shadow(
                         color: isWordActive ? palette.primary.opacity(0.8) : Color.black.opacity(0.4),
                         radius: isWordActive ? 25 : 8,
@@ -156,3 +147,4 @@ public struct TumblingLyricView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.62), value: isWordActive)
     }
 }
+

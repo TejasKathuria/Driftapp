@@ -129,10 +129,6 @@ public struct LyricRowView: View {
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(isActive ? Color.white.opacity(0.08) : (isHovered ? Color.white.opacity(0.04) : Color.clear))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(isActive ? palette.accent.opacity(0.25) : Color.clear, lineWidth: 1)
-                )
         )
         // Spatial fly-in / tilt / scale physics
         .offset(spatialOffset)

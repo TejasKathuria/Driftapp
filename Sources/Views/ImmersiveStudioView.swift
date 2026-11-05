@@ -14,64 +14,65 @@ public struct ImmersiveStudioView: View {
     public init() {}
     
     public var body: some View {
+        let currentPos = detector.currentTrack.position + detector.syncOffset
+        
         ZStack {
-            // 1. Living Album Cover Colors Mesh Gradient (Full Screen Canvas)
+            // 1. Living Album Cover Gradient Background
             LivingGradientBackground(palette: detector.currentTrack.palette, opacity: 1.0, showParticles: true)
                 .ignoresSafeArea()
             
-            // Atmospheric Vignette for deep contrast
+            // Atmospheric Vignette for deep depth & contrast
             RadialGradient(
-                colors: [Color.clear, Color.black.opacity(0.3), Color.black.opacity(0.75)],
+                colors: [Color.clear, Color.black.opacity(0.35), Color.black.opacity(0.8)],
                 center: .center,
                 startRadius: 200,
                 endRadius: 1000
             )
             .ignoresSafeArea()
             
-            // 2. Pure Tumbling Lyrics Canvas (No Album Cover, No Song Title, Just Colors & Words)
-            VStack {
+            // 2. Pure Slanted Ribbon Kinetic Lyrics Canvas (Matching User Reference Image)
+            VStack(spacing: 14) {
                 Spacer()
                 
                 if let lyrics = appState.lyrics, !lyrics.lines.isEmpty {
                     let activeIdx = appState.activeLineIndex ?? 0
-                    let currentLine = (activeIdx < lyrics.lines.count) ? lyrics.lines[activeIdx] : lyrics.lines[0]
-                    let currentPos = detector.currentTrack.position + detector.syncOffset
-                    let prog = currentLine.progress(at: currentPos)
                     
-                    // Main Tumbling Active Verse
-                    TumblingLyricView(
-                        line: currentLine,
-                        isActive: true,
-                        progress: prog,
-                        palette: detector.currentTrack.palette,
-                        fontChoice: appState.fontChoice,
-                        wavePhase: wavePhase,
-                        onSeek: {
-                            detector.seek(to: currentLine.startTime)
-                        }
-                    )
-                    .id(currentLine.id)
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.85)
-                                .combined(with: .opacity)
-                                .combined(with: .offset(y: 40)),
-                            removal: .scale(scale: 1.1)
-                                .combined(with: .opacity)
-                                .combined(with: .offset(y: -50))
-                        )
-                    )
+                    // 5 Layered Slanted Ribbon Bands (-2, -1, 0 [ACTIVE], +1, +2)
+                    let bandConfigs: [(offset: Int, angle: Double)] = [
+                        (-2, -2.8),
+                        (-1, 1.8),
+                        (0, -2.2), // Active Center Glowing Ribbon
+                        (1, 2.8),
+                        (2, -1.6)
+                    ]
                     
-                    // Subtle Preview of Next Upcoming Line
-                    if activeIdx + 1 < lyrics.lines.count {
-                        let nextLine = lyrics.lines[activeIdx + 1]
-                        Text(nextLine.text)
-                            .font(appState.fontChoice.font(size: 24, weight: .bold, sectionName: nextLine.sectionName))
-                            .foregroundStyle(Color.white.opacity(0.25))
-                            .rotationEffect(.degrees(2.0))
-                            .offset(y: 28)
-                            .blur(radius: 1.0)
+                    ForEach(bandConfigs, id: \.offset) { config in
+                        let targetIdx = activeIdx + config.offset
+                        let isActive = (config.offset == 0)
+                        
+                        if targetIdx >= 0 && targetIdx < lyrics.lines.count {
+                            let line = lyrics.lines[targetIdx]
+                            
+                            KineticRibbonLyricView(
+                                line: line,
+                                isActive: isActive,
+                                currentPosition: currentPos,
+                                palette: detector.currentTrack.palette,
+                                fontChoice: appState.fontChoice,
+                                bandAngle: .degrees(config.angle),
+                                wavePhase: wavePhase,
+                                onSeek: {
+                                    detector.seek(to: line.startTime)
+                                }
+                            )
+                            .id(line.id)
+                            .zIndex(isActive ? 10 : Double(5 - abs(config.offset)))
                             .transition(.opacity)
+                        } else {
+                            // Empty spacer ribbon to keep balanced layout at start/end of song
+                            Color.clear
+                                .frame(height: isActive ? 120 : 90)
+                        }
                     }
                 } else {
                     // Empty state
@@ -95,7 +96,7 @@ public struct ImmersiveStudioView: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.spring(response: 0.48, dampingFraction: 0.65), value: appState.activeLineIndex)
+            .animation(.spring(response: 0.42, dampingFraction: 0.72), value: appState.activeLineIndex)
             
             // 3. Auto-Hiding Minimal Controls (Fades out when mouse is idle)
             VStack {
@@ -116,7 +117,6 @@ public struct ImmersiveStudioView: View {
                         .background(
                             Capsule()
                                 .fill(.ultraThinMaterial)
-                                .overlay(Capsule().stroke(Color.white.opacity(0.25), lineWidth: 1))
                         )
                         .shadow(color: Color.black.opacity(0.4), radius: 10)
                     }
@@ -187,7 +187,6 @@ public struct ImmersiveStudioView: View {
                 .background(
                     Capsule()
                         .fill(.ultraThinMaterial)
-                        .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
                 )
                 .frame(maxWidth: 520)
                 .padding(.bottom, 36)
