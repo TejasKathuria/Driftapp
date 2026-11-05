@@ -228,6 +228,15 @@ public final class MusicDetector: ObservableObject {
     
     // MARK: - Playback Control Commands
     
+    private var activePlayerTarget: String {
+        if currentTrack.source == .spotify { return "Spotify" }
+        if currentTrack.source == .appleMusic { return "Music" }
+        if !NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").isEmpty {
+            return "Spotify"
+        }
+        return "Music"
+    }
+    
     public func togglePlayPause() {
         if preferredSource == .demo {
             currentTrack.isPlaying.toggle()
@@ -236,9 +245,11 @@ public final class MusicDetector: ObservableObject {
             return
         }
         
-        let target = (currentTrack.source == .spotify) ? "Spotify" : "Music"
+        let target = activePlayerTarget
         let script = "tell application \"\(target)\" to playpause"
-        NSAppleScript(source: script)?.executeAndReturnError(nil)
+        DispatchQueue.global(qos: .userInitiated).async {
+            NSAppleScript(source: script)?.executeAndReturnError(nil)
+        }
         currentTrack.isPlaying.toggle()
         lastSampleRealTime = CACurrentMediaTime()
         lastReportedPosition = currentTrack.position
@@ -252,9 +263,11 @@ public final class MusicDetector: ObservableObject {
             return
         }
         
-        let target = (currentTrack.source == .spotify) ? "Spotify" : "Music"
+        let target = activePlayerTarget
         let script = "tell application \"\(target)\" to set player position to \(seconds)"
-        NSAppleScript(source: script)?.executeAndReturnError(nil)
+        DispatchQueue.global(qos: .userInitiated).async {
+            NSAppleScript(source: script)?.executeAndReturnError(nil)
+        }
         currentTrack.position = seconds
         lastSampleRealTime = CACurrentMediaTime()
         lastReportedPosition = seconds
@@ -266,10 +279,12 @@ public final class MusicDetector: ObservableObject {
             loadDemoTrack(index: demoIndex, autoPlay: true)
             return
         }
-        let target = (currentTrack.source == .spotify) ? "Spotify" : "Music"
+        let target = activePlayerTarget
         let script = "tell application \"\(target)\" to next track"
-        NSAppleScript(source: script)?.executeAndReturnError(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async {
+            NSAppleScript(source: script)?.executeAndReturnError(nil)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.pollActivePlayer()
         }
     }
@@ -280,10 +295,12 @@ public final class MusicDetector: ObservableObject {
             loadDemoTrack(index: demoIndex, autoPlay: true)
             return
         }
-        let target = (currentTrack.source == .spotify) ? "Spotify" : "Music"
+        let target = activePlayerTarget
         let script = "tell application \"\(target)\" to previous track"
-        NSAppleScript(source: script)?.executeAndReturnError(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async {
+            NSAppleScript(source: script)?.executeAndReturnError(nil)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.pollActivePlayer()
         }
     }

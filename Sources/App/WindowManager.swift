@@ -1,15 +1,18 @@
 import AppKit
 import SwiftUI
 
-public final class WindowManager: ObservableObject {
+public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
     public static let shared = WindowManager()
     
     private var floatingWindow: NSWindow?
     private var notchIslandWindow: NSWindow?
     private var immersiveWindow: NSWindow?
     private var statusItem: NSStatusItem?
+    private var statusMenu: NSMenu?
     
-    private init() {}
+    private override init() {
+        super.init()
+    }
     
     public func setupApp() {
         setupStatusItem()
@@ -27,12 +30,17 @@ public final class WindowManager: ObservableObject {
         guard let button = statusItem?.button else { return }
         
         button.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "Drift Lyrics")
-        button.action = #selector(statusItemClicked)
-        button.target = self
+        
+        let menu = NSMenu()
+        menu.delegate = self
+        statusMenu = menu
+        statusItem?.menu = menu
     }
     
-    @objc private func statusItemClicked() {
-        let menu = NSMenu()
+    // MARK: - NSMenuDelegate (Dynamically populate menu before it opens)
+    
+    public func menuWillOpen(_ menu: NSMenu) {
+        menu.removeAllItems()
         let track = MusicDetector.shared.currentTrack
         
         // Track Title item
@@ -51,13 +59,19 @@ public final class WindowManager: ObservableObject {
         
         // Play / Pause
         let playTitle = track.isPlaying ? "Pause" : "Play"
-        menu.addItem(NSMenuItem(title: playTitle, action: #selector(togglePlayback), keyEquivalent: " "))
+        let playItem = NSMenuItem(title: playTitle, action: #selector(togglePlayback), keyEquivalent: " ")
+        playItem.target = self
+        menu.addItem(playItem)
         
         // Next Track
-        menu.addItem(NSMenuItem(title: "Next Track", action: #selector(nextTrack), keyEquivalent: "n"))
+        let nextItem = NSMenuItem(title: "Next Track", action: #selector(nextTrack), keyEquivalent: "n")
+        nextItem.target = self
+        menu.addItem(nextItem)
         
         // Previous Track
-        menu.addItem(NSMenuItem(title: "Previous Track", action: #selector(prevTrack), keyEquivalent: "p"))
+        let prevItem = NSMenuItem(title: "Previous Track", action: #selector(prevTrack), keyEquivalent: "p")
+        prevItem.target = self
+        menu.addItem(prevItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -65,6 +79,7 @@ public final class WindowManager: ObservableObject {
         let modesMenu = NSMenu()
         for mode in DriftDisplayMode.allCases {
             let item = NSMenuItem(title: mode.rawValue, action: #selector(modeSelected(_:)), keyEquivalent: "")
+            item.target = self
             item.representedObject = mode
             if mode == AppState.shared.displayMode {
                 item.state = .on
@@ -77,21 +92,24 @@ public final class WindowManager: ObservableObject {
         
         // Click-through Toggle
         let clickThroughItem = NSMenuItem(title: "Click-Through Mode", action: #selector(toggleClickThrough), keyEquivalent: "l")
+        clickThroughItem.target = self
         clickThroughItem.state = AppState.shared.isClickThrough ? .on : .off
         menu.addItem(clickThroughItem)
         
         menu.addItem(NSMenuItem.separator())
         
         // Preferences
-        menu.addItem(NSMenuItem(title: "Preferences...", action: #selector(openPreferences), keyEquivalent: ","))
+        let prefItem = NSMenuItem(title: "Preferences...", action: #selector(openPreferences), keyEquivalent: ",")
+        prefItem.target = self
+        menu.addItem(prefItem)
         
         // Quit
-        menu.addItem(NSMenuItem(title: "Quit Drift", action: #selector(quitApp), keyEquivalent: "q"))
-        
-        statusItem?.menu = menu
-        statusItem?.button?.performClick(nil)
-        statusItem?.menu = nil // Reset so clicking again triggers selector
+        let quitItem = NSMenuItem(title: "Quit Drift", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
     }
+    
+    // MARK: - Actions
     
     @objc private func togglePlayback() {
         MusicDetector.shared.togglePlayPause()
@@ -152,7 +170,6 @@ public final class WindowManager: ObservableObject {
         window.level = AppState.shared.isAlwaysOnTop ? .floating : .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
-        // Center on screen
         if let screen = NSScreen.main {
             let screenRect = screen.visibleFrame
             let x = screenRect.maxX - 520
@@ -181,7 +198,6 @@ public final class WindowManager: ObservableObject {
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
-        // Position directly below notch
         if let screen = NSScreen.main {
             let screenRect = screen.frame
             let x = screenRect.midX - 240
@@ -243,4 +259,3 @@ public final class WindowManager: ObservableObject {
         floatingWindow?.level = enabled ? .floating : .normal
     }
 }
-
