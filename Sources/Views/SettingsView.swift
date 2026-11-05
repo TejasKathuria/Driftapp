@@ -3,6 +3,7 @@ import SwiftUI
 public struct SettingsView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var detector = MusicDetector.shared
+    @ObservedObject var audioSync = AudioSyncEngine.shared
     @Environment(\.dismiss) private var dismiss
     
     @State private var searchTitle: String = ""
@@ -174,8 +175,10 @@ public struct SettingsView: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.secondary)
                         
+                        Toggle("Computer Audio Vocal Beat Sync (Live Acoustic Trigger)", isOn: $audioSync.useAudioOnsetSync)
+                        
                         HStack {
-                            Text(String(format: "Offset: %+.2f seconds", detector.syncOffset))
+                            Text(String(format: "Manual Offset: %+.2f seconds", detector.syncOffset))
                                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                                 .frame(width: 180, alignment: .leading)
                             

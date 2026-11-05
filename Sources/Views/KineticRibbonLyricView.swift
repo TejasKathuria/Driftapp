@@ -134,3 +134,4 @@ public struct KineticRibbonLyricView: View {
             .animation(.spring(response: 0.32, dampingFraction: 0.58), value: isWordActive)
     }
 }
+

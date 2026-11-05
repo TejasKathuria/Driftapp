@@ -30,50 +30,22 @@ public struct ImmersiveStudioView: View {
             )
             .ignoresSafeArea()
             
-            // 2. Pure Slanted Ribbon Kinetic Lyrics Canvas (Matching User Reference Image)
-            VStack(spacing: 14) {
-                Spacer()
-                
+            // 2. Solo Kinetic Word Canvas (One word moving with animation, synchronized with audio)
+            ZStack {
                 if let lyrics = appState.lyrics, !lyrics.lines.isEmpty {
                     let activeIdx = appState.activeLineIndex ?? 0
+                    let currentLine = (activeIdx < lyrics.lines.count) ? lyrics.lines[activeIdx] : lyrics.lines[0]
                     
-                    // 5 Layered Slanted Ribbon Bands (-2, -1, 0 [ACTIVE], +1, +2)
-                    let bandConfigs: [(offset: Int, angle: Double)] = [
-                        (-2, -2.8),
-                        (-1, 1.8),
-                        (0, -2.2), // Active Center Glowing Ribbon
-                        (1, 2.8),
-                        (2, -1.6)
-                    ]
-                    
-                    ForEach(bandConfigs, id: \.offset) { config in
-                        let targetIdx = activeIdx + config.offset
-                        let isActive = (config.offset == 0)
-                        
-                        if targetIdx >= 0 && targetIdx < lyrics.lines.count {
-                            let line = lyrics.lines[targetIdx]
-                            
-                            KineticRibbonLyricView(
-                                line: line,
-                                isActive: isActive,
-                                currentPosition: currentPos,
-                                palette: detector.currentTrack.palette,
-                                fontChoice: appState.fontChoice,
-                                bandAngle: .degrees(config.angle),
-                                wavePhase: wavePhase,
-                                onSeek: {
-                                    detector.seek(to: line.startTime)
-                                }
-                            )
-                            .id(line.id)
-                            .zIndex(isActive ? 10 : Double(5 - abs(config.offset)))
-                            .transition(.opacity)
-                        } else {
-                            // Empty spacer ribbon to keep balanced layout at start/end of song
-                            Color.clear
-                                .frame(height: isActive ? 120 : 90)
+                    SoloKineticWordView(
+                        line: currentLine,
+                        currentPosition: currentPos,
+                        palette: detector.currentTrack.palette,
+                        fontChoice: appState.fontChoice,
+                        wavePhase: wavePhase,
+                        onSeek: {
+                            detector.seek(to: currentLine.startTime)
                         }
-                    }
+                    )
                 } else {
                     // Empty state
                     VStack(spacing: 16) {
@@ -92,8 +64,6 @@ public struct ImmersiveStudioView: View {
                             .foregroundColor(.white.opacity(0.5))
                     }
                 }
-                
-                Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.spring(response: 0.42, dampingFraction: 0.72), value: appState.activeLineIndex)

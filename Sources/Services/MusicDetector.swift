@@ -94,7 +94,11 @@ public final class MusicDetector: ObservableObject {
     private func updateWithTrackInfo(_ info: PlayerInfo, source: MusicSource) {
         let now = CACurrentMediaTime()
         lastSampleRealTime = now
-        lastReportedPosition = info.position
+        
+        // Auto latency compensation: Apple Music has ~0.38s AppleScript IPC lag relative to speaker audio
+        let latencyCompensation = (source == .appleMusic) ? 0.38 : 0.0
+        let compensatedPosition = info.position + latencyCompensation
+        lastReportedPosition = compensatedPosition
         
         let changedSong = currentTrack.title != info.title || currentTrack.artist != info.artist
         
@@ -109,7 +113,7 @@ public final class MusicDetector: ObservableObject {
             artist: info.artist,
             album: info.album,
             duration: info.duration,
-            position: info.position,
+            position: compensatedPosition,
             isPlaying: info.isPlaying,
             source: source,
             artworkURL: info.artworkURL,

@@ -62,6 +62,8 @@ cat << 'EOF' > "${CONTENTS_DIR}/Info.plist"
     <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Drift reads current track information from Spotify and Apple Music to display synchronized lyrics.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Drift analyzes real-time computer audio to synchronize lyric word animations with vocal beats.</string>
 </dict>
 </plist>
 EOF
