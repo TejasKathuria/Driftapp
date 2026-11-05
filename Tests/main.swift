@@ -60,6 +60,14 @@ func runTests() {
     let _ = ColorExtractor.defaultPaletteForDemo(title: "Blinding Lights", artist: "The Weeknd")
     print("✅ Test 5 Passed: Album cover palette extraction verified.")
     
+    // Test 6: Word-by-Word Singing Cadence Timing
+    let testLine = LyricLine(startTime: 10.0, endTime: 14.0, text: "तेरी आँखों का ये नशा")
+    let timed = testLine.timedWords
+    assert(timed.count == 5, "Expected 5 timed words")
+    assert(timed[0].text == "तेरी" && timed[0].startTime == 10.0, "First word start mismatch")
+    assert(timed[4].text == "नशा" && timed[4].endTime == 14.0, "Last word end should match line end")
+    print("✅ Test 6 Passed: Natural vocal cadence word timing verified.")
+    
     print("\n🎉 ALL TESTS PASSED SUCCESSFULLY! Drift is 100% accurate and ready.")
 }
 

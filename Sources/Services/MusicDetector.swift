@@ -137,6 +137,40 @@ public final class MusicDetector: ObservableObject {
         }
     }
     
+    // MARK: - Acoustic Audio Sensor Steering
+    
+    public func syncWithAcousticOffset(_ acousticOffset: TimeInterval, detectedTitle: String?, detectedArtist: String?) {
+        guard acousticOffset > 0 else { return }
+        
+        // If no track is actively playing, use the acoustically detected song!
+        if currentTrack.title == "No Song Playing", let title = detectedTitle, !title.isEmpty {
+            let artist = detectedArtist ?? "Unknown Artist"
+            let palette = ColorExtractor.defaultPaletteForDemo(title: title, artist: artist)
+            currentTrack = Track(
+                id: "\(artist)-\(title)",
+                title: title,
+                artist: artist,
+                album: "",
+                duration: 240,
+                position: acousticOffset,
+                isPlaying: true,
+                source: .auto,
+                palette: palette
+            )
+            AppState.shared.fetchLyrics(for: currentTrack)
+            return
+        }
+        
+        let diff = acousticOffset - currentTrack.position
+        
+        // If discrepancy is noticeable (>= 0.30s), steer position to acoustic verse
+        if abs(diff) >= 0.30 {
+            lastReportedPosition = acousticOffset
+            lastSampleRealTime = CACurrentMediaTime()
+            currentTrack.position = acousticOffset
+        }
+    }
+    
     // MARK: - AppleScript Querying
     
     private struct PlayerInfo {

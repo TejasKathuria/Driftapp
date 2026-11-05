@@ -30,8 +30,9 @@ public final class AudioSyncEngine: ObservableObject {
             return
         }
         
-        inputNode.installTap(onBus: 0, bufferSize: 512, format: format) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, when in
             self?.processAudioBuffer(buffer)
+            AcousticVerseMatcher.shared.processBuffer(buffer, at: when)
         }
         
         do {

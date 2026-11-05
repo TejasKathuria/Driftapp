@@ -9,14 +9,36 @@ public struct SoloKineticWordView: View {
     let onSeek: () -> Void
     
     @ObservedObject var audioSync = AudioSyncEngine.shared
+    @ObservedObject var acousticMatcher = AcousticVerseMatcher.shared
     
     public var body: some View {
         let timedWords = line.timedWords
         let activeWord = currentActiveWord(words: timedWords)
         let tilt = organicTilt(for: activeWord?.text ?? "")
         
-        VStack(spacing: 32) {
+        VStack(spacing: 24) {
             Spacer()
+            
+            // Acoustic Audio Sensor Sync Pill
+            if acousticMatcher.isAcousticallyLocked {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(palette.accent)
+                        .frame(width: 6, height: 6)
+                        .scaleEffect(sin(wavePhase * 4.0) * 0.3 + 0.9)
+                    Text("AUDIO SENSOR LOCKED")
+                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .tracking(2.0)
+                        .foregroundStyle(palette.accent)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.45))
+                )
+                .transition(.opacity)
+            }
             
             // Section Tag Badge (e.g. CHORUS, VERSE)
             if let section = line.sectionName, !section.isEmpty {
