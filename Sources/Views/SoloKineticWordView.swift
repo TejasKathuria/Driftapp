@@ -60,13 +60,17 @@ public struct SoloKineticWordView: View {
                     .transition(.opacity)
             }
             
-            // SOLO KINETIC WORD - CINEMATIC, BUTTERY SMOOTH & JITTER-FREE
+            // SOLO KINETIC WORD CANVAS WITH AMBIENT RIPPLES
             ZStack {
+                // RAM-Easy Ambient Sonic Ripples (GPU Accelerated, 0 CPU overhead)
+                AmbientSonicRipples(color: palette.accent)
+                    .opacity(wordToDisplay != nil ? 0.75 : 0.2)
+                
                 if let word = wordToDisplay {
                     Group {
                         switch variation {
                         case 0:
-                            // VARIATION 0: 🌌 Stranger Things Retro Cinematic Zoom (Slow ominous creeping zoom-in with deep atmospheric neon bloom)
+                            // VARIATION 0: 🌌 Stranger Things Retro Cinematic Zoom (Ominous creeping zoom with vertical bottom gradient)
                             StrangerThingsZoomWordView(
                                 word: word,
                                 palette: palette,
@@ -96,7 +100,7 @@ public struct SoloKineticWordView: View {
                             )
                             
                         case 2:
-                            // VARIATION 2: 🌫️ Ethereal Smoke & Ghost Dissolve (Emerges from dense starlight mist, resolves, evaporates)
+                            // VARIATION 2: 🌫️ Ethereal Smoke & Ghost Dissolve (Emerges from starlight mist, vertical gradient, dissolves)
                             EtherealSmokeFadeWordView(
                                 word: word,
                                 palette: palette,
@@ -111,7 +115,7 @@ public struct SoloKineticWordView: View {
                             )
                             
                         case 3:
-                            // VARIATION 3: ⚡ Hyperspace Kinetic Impact (Lightspeed punch from depth with dual chromatic trails)
+                            // VARIATION 3: ⚡ Hyperspace Kinetic Impact (Lightspeed punch from depth with symmetrical vertical bloom)
                             HyperspaceImpactWordView(
                                 word: word,
                                 palette: palette,
@@ -126,7 +130,7 @@ public struct SoloKineticWordView: View {
                             )
                             
                         default:
-                            // VARIATION 4: 🎭 Prismatic Barrel Roll & Drift (3D horizontal spin on Y-Axis with neon light refraction)
+                            // VARIATION 4: 🎭 Prismatic Barrel Roll & Drift (3D horizontal spin on Y-Axis with pure vertical bottom gradient)
                             PrismaticRollWordView(
                                 word: word,
                                 palette: palette,
@@ -135,8 +139,8 @@ public struct SoloKineticWordView: View {
                             )
                             .transition(
                                 .asymmetric(
-                                    insertion: .scale(scale: 0.8).combined(with: .opacity).combined(with: .offset(x: 100)),
-                                    removal: .scale(scale: 1.2).combined(with: .opacity).combined(with: .offset(x: -100))
+                                    insertion: .scale(scale: 0.8).combined(with: .opacity).combined(with: .offset(y: 40)),
+                                    removal: .scale(scale: 1.2).combined(with: .opacity).combined(with: .offset(y: -40))
                                 )
                             )
                         }
@@ -156,7 +160,7 @@ public struct SoloKineticWordView: View {
                     .frame(height: 180)
                 }
             }
-            .frame(height: 280)
+            .frame(height: 290)
             .animation(.spring(response: 0.58, dampingFraction: 0.76), value: wordToDisplay?.id)
             
             Spacer()
@@ -178,8 +182,25 @@ public struct SoloKineticWordView: View {
             speedMultiplier: appState.pacingSpeedMultiplier,
             chunkPhrases: appState.usePhraseChunking
         )
-        let resolved = currentActiveWord(words: timedWords)
-        if resolved?.id != activeWord?.id || resolved?.text != activeWord?.text {
+        guard let resolved = currentActiveWord(words: timedWords) else {
+            if currentPosition < line.startTime - 0.5 {
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.75)) {
+                    self.activeWord = nil
+                }
+            }
+            return
+        }
+        
+        // Anti-Jitter Monotonic Lock:
+        // Within the active verse line, only advance words forward.
+        // Prevents any backward word flickering when clock timers interpolate near word boundaries.
+        if let current = activeWord {
+            if resolved.id < current.id && currentPosition >= current.startTime - 0.4 {
+                return // Stay on current word, never flicker back!
+            }
+        }
+        
+        if resolved.id != activeWord?.id || resolved.text != activeWord?.text {
             withAnimation(.spring(response: 0.58, dampingFraction: 0.74)) {
                 self.activeWord = resolved
             }
@@ -206,6 +227,33 @@ public struct SoloKineticWordView: View {
         }
         
         return words.last
+    }
+}
+
+// MARK: - RAM-Easy Ambient Sonic Ripples (GPU Accelerated Vector Rings)
+
+struct AmbientSonicRipples: View {
+    let color: Color
+    @State private var ripplePhase: CGFloat = 0.0
+    
+    var body: some View {
+        ZStack {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .strokeBorder(
+                        color.opacity(max(0, 0.32 - Double(index) * 0.08 - Double(ripplePhase) * 0.12)),
+                        lineWidth: 1.5
+                    )
+                    .scaleEffect(0.55 + CGFloat(index) * 0.35 + ripplePhase * 0.38)
+                    .blur(radius: 1.5 + CGFloat(index) * 2.0)
+            }
+        }
+        .frame(width: 320, height: 320)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
+                ripplePhase = 1.0
+            }
+        }
     }
 }
 
@@ -242,7 +290,7 @@ struct StrangerThingsZoomWordView: View {
         let neonGlowColor = palette.accent
         
         ZStack {
-            // Deep Ambient 80s Neon Haze
+            // Deep Ambient 80s Neon Haze (Centered)
             Text(word.text)
                 .font(fontChoice.font(size: size * 1.04, weight: .black, sectionName: sectionName))
                 .tracking(7.0)
@@ -250,7 +298,7 @@ struct StrangerThingsZoomWordView: View {
                 .blur(radius: 42)
                 .scaleEffect(isZooming ? 1.20 : 0.92)
             
-            // Secondary Mid-Glow Bloom
+            // Secondary Mid-Glow Bloom (Vertical Gradient)
             Text(word.text)
                 .font(fontChoice.font(size: size * 1.02, weight: .black, sectionName: sectionName))
                 .tracking(6.0)
@@ -264,7 +312,7 @@ struct StrangerThingsZoomWordView: View {
                 .blur(radius: 14)
                 .scaleEffect(isZooming ? 1.15 : 0.90)
             
-            // Hero Stranger Things Typography
+            // Hero Typography: Pure Top-to-Bottom Vertical Gradient (No right-side color tint)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(5.5)
@@ -303,7 +351,7 @@ struct KineticTumbleWordView: View {
         let size = dynamicFontSize(for: word.text)
         
         ZStack {
-            // Ground plane depth shadow
+            // Ground plane depth shadow (Centered)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .foregroundStyle(palette.accent.opacity(0.45))
@@ -311,7 +359,7 @@ struct KineticTumbleWordView: View {
                 .offset(y: isTumbled ? 28 : 50)
                 .scaleEffect(isTumbled ? 0.95 : 0.7)
             
-            // Hero Tumbling Word on X-Axis
+            // Hero Tumbling Word: Vertical Top-to-Bottom Gradient
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(2.0)
@@ -327,7 +375,7 @@ struct KineticTumbleWordView: View {
                 .shadow(color: palette.primary.opacity(0.7), radius: 55, x: 0, y: 0)
                 .rotation3DEffect(
                     .degrees(isTumbled ? 0 : -80),
-                    axis: (x: 1, y: 0.1, z: 0),
+                    axis: (x: 1, y: 0, z: 0),
                     perspective: 0.45
                 )
                 .offset(y: isTumbled ? 0 : -70)
@@ -355,7 +403,7 @@ struct EtherealSmokeFadeWordView: View {
         let size = dynamicFontSize(for: word.text)
         
         ZStack {
-            // Ambient Cloud Vapour Halo
+            // Ambient Cloud Vapour Halo (Centered)
             Text(word.text)
                 .font(fontChoice.font(size: size * 1.08, weight: .black, sectionName: sectionName))
                 .foregroundStyle(palette.primary.opacity(0.75))
@@ -363,15 +411,15 @@ struct EtherealSmokeFadeWordView: View {
                 .scaleEffect(isMaterialized ? 1.05 : 1.4)
                 .opacity(isMaterialized ? 0.65 : 0.0)
             
-            // Core Word Materializing from Mist
+            // Core Word: Pure Top-to-Bottom Vertical Gradient (No right-side color tint)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(3.5)
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color.white, Color.white.opacity(0.95), palette.accent.opacity(0.8)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
                 )
                 .shadow(color: Color.white.opacity(0.95), radius: 16, x: 0, y: 0)
@@ -402,29 +450,26 @@ struct HyperspaceImpactWordView: View {
         let size = dynamicFontSize(for: word.text)
         
         ZStack {
-            // Chromatic Trail Left (Palette Primary)
+            // Vertical Symmetrical Depth Echo (Centered vertically, NO right-side offset)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
-                .foregroundStyle(palette.primary.opacity(0.6))
-                .blur(radius: 5)
-                .offset(x: isImpacted ? -4 : -35, y: isImpacted ? -2 : -15)
-                .scaleEffect(isImpacted ? 1.0 : 1.4)
-                .opacity(isImpacted ? 0.7 : 0.0)
+                .foregroundStyle(palette.accent.opacity(0.55))
+                .blur(radius: 8)
+                .offset(y: isImpacted ? 4 : 22)
+                .scaleEffect(isImpacted ? 1.0 : 1.3)
+                .opacity(isImpacted ? 0.6 : 0.0)
             
-            // Chromatic Trail Right (Palette Accent)
-            Text(word.text)
-                .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
-                .foregroundStyle(palette.accent.opacity(0.6))
-                .blur(radius: 5)
-                .offset(x: isImpacted ? 4 : 35, y: isImpacted ? 2 : 15)
-                .scaleEffect(isImpacted ? 1.0 : 1.4)
-                .opacity(isImpacted ? 0.7 : 0.0)
-            
-            // Hero Word
+            // Hero Word: Pure Top-to-Bottom Vertical Gradient
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(1.5)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.white, Color.white.opacity(0.95), palette.accent.opacity(0.85)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .shadow(color: Color.white.opacity(0.95), radius: 16, x: 0, y: 0)
                 .shadow(color: palette.accent.opacity(0.9), radius: 42, x: 0, y: 0)
                 .shadow(color: palette.primary.opacity(0.75), radius: 65, x: 0, y: 0)
@@ -453,32 +498,33 @@ struct PrismaticRollWordView: View {
         let size = dynamicFontSize(for: word.text)
         
         ZStack {
-            // Prismatic Echo
+            // Symmetrical Soft Ambient Flare (Centered, no right bias)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
-                .foregroundStyle(palette.accent.opacity(0.5))
-                .blur(radius: 18)
-                .offset(x: isRolled ? -6 : -40)
+                .foregroundStyle(palette.accent.opacity(0.45))
+                .blur(radius: 20)
+                .scaleEffect(isRolled ? 1.05 : 0.9)
             
-            // Hero Word Rolling on Y-Axis
+            // Hero Word: Vertical Top-to-Bottom Gradient (No right-side color tint)
             Text(word.text)
                 .font(fontChoice.font(size: size, weight: .black, sectionName: sectionName))
                 .tracking(2.5)
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.white, palette.accent],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                        colors: [Color.white, Color.white.opacity(0.95), palette.accent.opacity(0.85)],
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
                 )
                 .shadow(color: Color.white.opacity(0.92), radius: 15, x: 0, y: 0)
                 .shadow(color: palette.accent.opacity(0.85), radius: 36, x: 0, y: 0)
+                .shadow(color: palette.primary.opacity(0.65), radius: 55, x: 0, y: 0)
                 .rotation3DEffect(
                     .degrees(isRolled ? 0 : 70),
                     axis: (x: 0, y: 1, z: 0),
                     perspective: 0.4
                 )
-                .offset(x: isRolled ? 0 : 80)
+                .offset(y: isRolled ? 0 : 25)
                 .scaleEffect(isRolled ? 1.0 : 0.85)
         }
         .onAppear {

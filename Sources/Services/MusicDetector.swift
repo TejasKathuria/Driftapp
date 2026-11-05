@@ -98,9 +98,18 @@ public final class MusicDetector: ObservableObject {
         // Auto latency compensation: Apple Music has ~0.52s AppleScript IPC lag relative to speaker audio
         let latencyCompensation = (source == .appleMusic) ? 0.52 : 0.0
         let compensatedPosition = info.position + latencyCompensation
-        lastReportedPosition = compensatedPosition
         
         let changedSong = currentTrack.title != info.title || currentTrack.artist != info.artist
+        
+        // Monotonic Clock Protection:
+        // Polling AppleScript can report truncated/jittery seconds (e.g. 24.0 after interpolated reached 24.4).
+        // Never allow playback clock to snap backwards during normal playback unless user explicitly seeked (>1.5s jump).
+        let currentPos = currentTrack.position
+        let diff = compensatedPosition - currentPos
+        let isBackwardJitter = (!changedSong && currentTrack.isPlaying && diff < 0 && diff > -1.5)
+        
+        let stablePosition = isBackwardJitter ? currentPos : compensatedPosition
+        lastReportedPosition = stablePosition
         
         var currentPalette = currentTrack.palette
         if changedSong {
@@ -113,7 +122,7 @@ public final class MusicDetector: ObservableObject {
             artist: info.artist,
             album: info.album,
             duration: info.duration,
-            position: compensatedPosition,
+            position: stablePosition,
             isPlaying: info.isPlaying,
             source: source,
             artworkURL: info.artworkURL,

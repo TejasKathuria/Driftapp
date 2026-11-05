@@ -91,28 +91,20 @@ public final class AudioSyncEngine: ObservableObject {
     
     /// Checks if the next word should trigger now based on audio acoustics and expected time
     public func isWordTriggered(wordStartTime: TimeInterval, currentPosition: TimeInterval) -> Bool {
-        let now = CACurrentMediaTime()
-        
         // If audio onset sync is enabled
         if useAudioOnsetSync {
             let timeDiff = wordStartTime - currentPosition
+            let now = CACurrentMediaTime()
             let recentOnset = (now - lastOnsetTimestamp < 0.12)
-            let cooldownPassed = (now - lastWordTriggerTime >= 0.42)
             
-            // Tight anticipation window (within 120ms): prevents cascading through multiple words
-            if recentOnset && cooldownPassed && timeDiff > -0.08 && timeDiff <= 0.14 {
-                lastWordTriggerTime = now
+            // Tight anticipation window (within 100ms)
+            if recentOnset && timeDiff > -0.05 && timeDiff <= 0.10 {
                 return true
             }
         }
         
         // Standard high-resolution clock trigger
-        if currentPosition >= wordStartTime {
-            lastWordTriggerTime = now
-            return true
-        }
-        
-        return false
+        return currentPosition >= wordStartTime
     }
 }
 
