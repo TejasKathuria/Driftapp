@@ -108,3 +108,4 @@ drift/
 
 ## 📄 License
 MIT License. Built for macOS.
+

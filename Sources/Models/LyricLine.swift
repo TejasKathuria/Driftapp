@@ -45,3 +45,4 @@ public struct LyricLine: Identifiable, Equatable {
         return String(format: "%02d:%02d.%02d", mins, secs, centis)
     }
 }
+

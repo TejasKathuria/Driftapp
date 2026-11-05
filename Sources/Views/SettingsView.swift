@@ -239,13 +239,18 @@ public struct SettingsView: View {
         )
         
         Task {
-            let result = await LyricsService.shared.fetchLyrics(for: testTrack)
+            var trackWithArt = testTrack
+            let (data, pal) = await ArtworkService.shared.fetchArtworkDataAndPalette(for: testTrack)
+            trackWithArt.artworkImage = data.flatMap { NSImage(data: $0) }
+            trackWithArt.palette = pal
+            
+            let result = await LyricsService.shared.fetchLyrics(for: trackWithArt)
             await MainActor.run {
                 isSearching = false
                 if let parsed = result, !parsed.lines.isEmpty {
-                    searchStatus = "Loaded \(parsed.lines.count) synchronized lines!"
+                    searchStatus = "Loaded \(parsed.lines.count) synchronized lines with album palette!"
                     detector.preferredSource = .demo
-                    detector.currentTrack = testTrack
+                    detector.currentTrack = trackWithArt
                     appState.lyrics = parsed
                     appState.activeLineIndex = 0
                 } else {

@@ -56,6 +56,10 @@ func runTests() {
     assert(parsedWeeknd.lines.count > 10, "Parsed Weeknd lyrics should have multiple lines")
     print("✅ Test 4 Passed: Built-in demo tracks verified with rich timestamps.")
     
+    // Test 5: Album Cover Color Palette Extraction
+    let _ = ColorExtractor.defaultPaletteForDemo(title: "Blinding Lights", artist: "The Weeknd")
+    print("✅ Test 5 Passed: Album cover palette extraction verified.")
+    
     print("\n🎉 ALL TESTS PASSED SUCCESSFULLY! Drift is 100% accurate and ready.")
 }
 

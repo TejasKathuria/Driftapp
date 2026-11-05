@@ -19,6 +19,44 @@ public enum MusicSource: String, CaseIterable, Identifiable {
     }
 }
 
+public struct ArtworkPalette: Equatable {
+    public var primary: Color
+    public var secondary: Color
+    public var accent: Color
+    public var backgroundDark: Color
+    public var backgroundMid: Color
+    
+    public init(
+        primary: Color = Color(red: 0.95, green: 0.25, blue: 0.55),
+        secondary: Color = Color(red: 0.45, green: 0.20, blue: 0.90),
+        accent: Color = Color(red: 0.20, green: 0.85, blue: 0.95),
+        backgroundDark: Color = Color(red: 0.05, green: 0.04, blue: 0.10),
+        backgroundMid: Color = Color(red: 0.15, green: 0.08, blue: 0.25)
+    ) {
+        self.primary = primary
+        self.secondary = secondary
+        self.accent = accent
+        self.backgroundDark = backgroundDark
+        self.backgroundMid = backgroundMid
+    }
+    
+    public var backgroundGradient: LinearGradient {
+        LinearGradient(
+            colors: [backgroundDark, backgroundMid, backgroundDark],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    public var accentGradient: LinearGradient {
+        LinearGradient(
+            colors: [primary, accent],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+}
+
 public struct Track: Equatable {
     public var id: String
     public var title: String
@@ -30,7 +68,11 @@ public struct Track: Equatable {
     public var source: MusicSource
     public var artworkURL: String?
     public var artworkImage: NSImage?
-    public var accentColor: Color
+    public var palette: ArtworkPalette
+    
+    public var accentColor: Color {
+        palette.accent
+    }
     
     public init(
         id: String = UUID().uuidString,
@@ -43,7 +85,7 @@ public struct Track: Equatable {
         source: MusicSource = .auto,
         artworkURL: String? = nil,
         artworkImage: NSImage? = nil,
-        accentColor: Color = Color.pink
+        palette: ArtworkPalette = ArtworkPalette()
     ) {
         self.id = id
         self.title = title
@@ -55,7 +97,7 @@ public struct Track: Equatable {
         self.source = source
         self.artworkURL = artworkURL
         self.artworkImage = artworkImage
-        self.accentColor = accentColor
+        self.palette = palette
     }
     
     public var formattedPosition: String {

@@ -243,3 +243,4 @@ public final class WindowManager: ObservableObject {
         floatingWindow?.level = enabled ? .floating : .normal
     }
 }
+

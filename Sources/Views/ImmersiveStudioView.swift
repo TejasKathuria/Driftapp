@@ -4,19 +4,19 @@ public struct ImmersiveStudioView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var detector = MusicDetector.shared
     
-    @State private var gradientPhase: CGFloat = 0
+    @State private var wavePhase: CGFloat = 0
     @State private var timer: Timer?
     
     public init() {}
     
     public var body: some View {
         ZStack {
-            // Living Fluid Gradient Background
-            livingGradientBackground
+            // Living Album Cover Gradient Background
+            LivingGradientBackground(palette: detector.currentTrack.palette, opacity: 1.0, showParticles: true)
                 .ignoresSafeArea()
             
             // Subtle dark vignette layer for maximum text readability
-            Color.black.opacity(0.4)
+            Color.black.opacity(0.35)
                 .ignoresSafeArea()
             
             // Content Layout
@@ -25,7 +25,7 @@ public struct ImmersiveStudioView: View {
                 leftPlayerColumn
                     .frame(width: 360)
                 
-                // Right Column: Apple Music Style Fullscreen Lyrics
+                // Right Column: Apple Music Style Fullscreen Lyrics with Spatial Animations
                 rightLyricsColumn
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -44,7 +44,7 @@ public struct ImmersiveStudioView: View {
                             Text("Exit Fullscreen (Esc)")
                         }
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.85))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(
@@ -60,7 +60,7 @@ public struct ImmersiveStudioView: View {
             .padding(24)
         }
         .onAppear {
-            startGradientAnimation()
+            startAnimation()
         }
         .onDisappear {
             timer?.invalidate()
@@ -68,49 +68,11 @@ public struct ImmersiveStudioView: View {
         }
     }
     
-    // MARK: - Living Gradient
-    
-    private var livingGradientBackground: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color.black
-                
-                // Color blob 1
-                Circle()
-                    .fill(detector.currentTrack.accentColor.opacity(0.45))
-                    .frame(width: geo.size.width * 0.7, height: geo.size.width * 0.7)
-                    .blur(radius: 120)
-                    .offset(
-                        x: sin(gradientPhase) * 150 - 100,
-                        y: cos(gradientPhase * 0.8) * 120 - 100
-                    )
-                
-                // Color blob 2
-                Circle()
-                    .fill(Color(red: 0.1, green: 0.2, blue: 0.6).opacity(0.5))
-                    .frame(width: geo.size.width * 0.65, height: geo.size.width * 0.65)
-                    .blur(radius: 140)
-                    .offset(
-                        x: cos(gradientPhase * 1.2) * 200 + 150,
-                        y: sin(gradientPhase) * 150 + 100
-                    )
-                
-                // Color blob 3
-                Circle()
-                    .fill(Color(red: 0.7, green: 0.1, blue: 0.5).opacity(0.35))
-                    .frame(width: geo.size.width * 0.6, height: geo.size.width * 0.6)
-                    .blur(radius: 130)
-                    .offset(
-                        x: sin(gradientPhase * 0.7) * 180,
-                        y: cos(gradientPhase * 1.1) * 200
-                    )
-            }
-        }
-    }
-    
-    private func startGradientAnimation() {
+    private func startAnimation() {
         timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-            gradientPhase += 0.015
+            if detector.currentTrack.isPlaying {
+                wavePhase += 0.04
+            }
         }
     }
     
@@ -120,34 +82,51 @@ public struct ImmersiveStudioView: View {
         VStack(alignment: .leading, spacing: 24) {
             Spacer()
             
-            // Big Album Art
+            // High-Resolution Album Art
             ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(white: 0.2), Color(white: 0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                if let art = detector.currentTrack.artworkImage {
+                    Image(nsImage: art)
+                        .resizable()
+                        .aspectRatio(1, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                .stroke(Color.white.opacity(0.25), lineWidth: 1.2)
                         )
-                    )
-                    .aspectRatio(1, contentMode: .fit)
-                    .shadow(color: Color.black.opacity(0.6), radius: 35, x: 0, y: 20)
-                    .shadow(color: detector.currentTrack.accentColor.opacity(0.3), radius: 30, x: 0, y: 15)
-                
-                VStack(spacing: 12) {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 64, weight: .light))
-                        .foregroundColor(detector.currentTrack.accentColor)
+                        .shadow(color: Color.black.opacity(0.6), radius: 35, x: 0, y: 20)
+                        .shadow(color: detector.currentTrack.palette.primary.opacity(0.4), radius: 35, x: 0, y: 15)
+                } else {
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [detector.currentTrack.palette.backgroundMid, detector.currentTrack.palette.backgroundDark],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                .stroke(detector.currentTrack.palette.accent.opacity(0.3), lineWidth: 1.5)
+                        )
+                        .shadow(color: Color.black.opacity(0.6), radius: 35, x: 0, y: 20)
+                        .shadow(color: detector.currentTrack.palette.accent.opacity(0.3), radius: 30, x: 0, y: 15)
                     
-                    if let verse = appState.currentVerseName {
-                        Text(verse.uppercased())
-                            .font(.system(size: 11, weight: .heavy, design: .rounded))
-                            .tracking(2)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(detector.currentTrack.accentColor.opacity(0.3))
-                            .foregroundColor(.white)
-                            .clipShape(Capsule())
+                    VStack(spacing: 12) {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 64, weight: .light))
+                            .foregroundColor(detector.currentTrack.palette.accent)
+                        
+                        if let verse = appState.currentVerseName {
+                            Text(verse.uppercased())
+                                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                                .tracking(2)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(detector.currentTrack.palette.accent.opacity(0.3))
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
+                        }
                     }
                 }
             }
@@ -180,7 +159,13 @@ public struct ImmersiveStudioView: View {
                         Capsule().fill(Color.white.opacity(0.2))
                             .frame(height: 6)
                         Capsule()
-                            .fill(detector.currentTrack.accentColor)
+                            .fill(
+                                LinearGradient(
+                                    colors: [detector.currentTrack.palette.primary, detector.currentTrack.palette.accent],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
                             .frame(width: geo.size.width * CGFloat(detector.currentTrack.progress), height: 6)
                     }
                     .contentShape(Rectangle())
@@ -235,7 +220,7 @@ public struct ImmersiveStudioView: View {
                 
                 AudioVisualizerView(
                     levels: appState.spectrumLevels,
-                    accentColor: detector.currentTrack.accentColor,
+                    accentColor: detector.currentTrack.palette.accent,
                     barWidth: 3,
                     spacing: 2,
                     maxHeight: 24
@@ -253,23 +238,24 @@ public struct ImmersiveStudioView: View {
             if let lyrics = appState.lyrics, !lyrics.lines.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
-                        LazyVStack(alignment: .leading, spacing: 20) {
-                            Spacer().frame(height: 200)
+                        LazyVStack(alignment: .leading, spacing: 22) {
+                            Spacer().frame(height: 180)
                             
                             ForEach(Array(lyrics.lines.enumerated()), id: \.element.id) { index, line in
-                                let isActive = (index == appState.activeLineIndex)
                                 let currentPos = detector.currentTrack.position + detector.syncOffset
                                 let prog = line.progress(at: currentPos)
                                 
                                 LyricRowView(
                                     line: line,
-                                    isActive: isActive,
+                                    index: index,
+                                    activeLineIndex: appState.activeLineIndex,
                                     progress: prog,
                                     fontChoice: appState.fontChoice,
                                     fontSize: 34,
                                     theme: appState.colorTheme,
-                                    accentColor: detector.currentTrack.accentColor,
+                                    palette: detector.currentTrack.palette,
                                     karaokeSweep: appState.karaokeProgressSweep,
+                                    wavePhase: wavePhase,
                                     onSeek: {
                                         detector.seek(to: line.startTime)
                                     }
@@ -277,7 +263,7 @@ public struct ImmersiveStudioView: View {
                                 .id(line.id)
                             }
                             
-                            Spacer().frame(height: 300)
+                            Spacer().frame(height: 280)
                         }
                     }
                     .onChange(of: appState.activeLineIndex) { _, newIndex in
@@ -293,7 +279,7 @@ public struct ImmersiveStudioView: View {
                     Spacer()
                     Image(systemName: "music.note.list")
                         .font(.system(size: 60))
-                        .foregroundColor(detector.currentTrack.accentColor.opacity(0.7))
+                        .foregroundColor(detector.currentTrack.palette.accent.opacity(0.7))
                     Text("No synchronized lyrics available")
                         .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)

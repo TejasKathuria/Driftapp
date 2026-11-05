@@ -98,9 +98,9 @@ public final class MusicDetector: ObservableObject {
         
         let changedSong = currentTrack.title != info.title || currentTrack.artist != info.artist
         
-        var accent = currentTrack.accentColor
+        var currentPalette = currentTrack.palette
         if changedSong {
-            accent = generatePalette(for: "\(info.title) \(info.artist)")
+            currentPalette = ColorExtractor.defaultPaletteForDemo(title: info.title, artist: info.artist)
         }
         
         currentTrack = Track(
@@ -113,9 +113,24 @@ public final class MusicDetector: ObservableObject {
             isPlaying: info.isPlaying,
             source: source,
             artworkURL: info.artworkURL,
-            artworkImage: info.artworkImage,
-            accentColor: accent
+            artworkImage: changedSong ? nil : currentTrack.artworkImage,
+            palette: currentPalette
         )
+        
+        if changedSong {
+            let trackToFetch = currentTrack
+            Task {
+                let (data, palette) = await ArtworkService.shared.fetchArtworkDataAndPalette(for: trackToFetch)
+                await MainActor.run {
+                    if self.currentTrack.id == trackToFetch.id {
+                        withAnimation(.easeInOut(duration: 0.8)) {
+                            self.currentTrack.artworkImage = data.flatMap { NSImage(data: $0) }
+                            self.currentTrack.palette = palette
+                        }
+                    }
+                }
+            }
+        }
     }
     
     // MARK: - AppleScript Querying
@@ -282,6 +297,8 @@ public final class MusicDetector: ObservableObject {
         lastSampleRealTime = CACurrentMediaTime()
         lastReportedPosition = 0
         
+        let palette = ColorExtractor.defaultPaletteForDemo(title: demo.title, artist: demo.artist)
+        
         currentTrack = Track(
             id: "demo-\(demo.title)",
             title: demo.title,
@@ -293,7 +310,7 @@ public final class MusicDetector: ObservableObject {
             source: .demo,
             artworkURL: nil,
             artworkImage: nil,
-            accentColor: generatePalette(for: "\(demo.title) \(demo.artist)")
+            palette: palette
         )
     }
     

@@ -11,23 +11,36 @@ public struct NotchIslandView: View {
     public var body: some View {
         let activeLine = currentActiveLine()
         let nextLine = nextUpcomingLine()
+        let palette = detector.currentTrack.palette
         
         VStack(spacing: 0) {
             // Main Island Capsule Bar
             HStack(spacing: 12) {
-                // Spinning Vinyl / Album art
+                // Album Thumbnail or Spinning Vinyl
                 ZStack {
-                    Circle()
-                        .fill(Color.black.opacity(0.8))
-                        .frame(width: 26, height: 26)
-                    Circle()
-                        .stroke(detector.currentTrack.accentColor.opacity(0.5), lineWidth: 1.5)
-                        .frame(width: 20, height: 20)
-                    Circle()
-                        .fill(detector.currentTrack.accentColor)
-                        .frame(width: 8, height: 8)
+                    if let art = detector.currentTrack.artworkImage {
+                        Image(nsImage: art)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 26, height: 26)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(palette.accent.opacity(0.4), lineWidth: 1)
+                            )
+                    } else {
+                        Circle()
+                            .fill(Color.black.opacity(0.8))
+                            .frame(width: 26, height: 26)
+                        Circle()
+                            .stroke(palette.accent.opacity(0.5), lineWidth: 1.5)
+                            .frame(width: 20, height: 20)
+                        Circle()
+                            .fill(palette.accent)
+                            .frame(width: 8, height: 8)
+                    }
                 }
-                .rotationEffect(.degrees(detector.currentTrack.isPlaying ? 360 : 0))
+                .rotationEffect(.degrees(detector.currentTrack.artworkImage == nil && detector.currentTrack.isPlaying ? 360 : 0))
                 .animation(
                     detector.currentTrack.isPlaying
                         ? .linear(duration: 6).repeatForever(autoreverses: false)
@@ -44,15 +57,15 @@ public struct NotchIslandView: View {
                                     .font(.system(size: 8, weight: .black, design: .rounded))
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 1.5)
-                                    .background(detector.currentTrack.accentColor.opacity(0.3))
-                                    .foregroundColor(detector.currentTrack.accentColor)
+                                    .background(palette.accent.opacity(0.3))
+                                    .foregroundColor(palette.accent)
                                     .clipShape(Capsule())
                             }
                             
                             Text(line.text)
-                                .font(appState.fontChoice.font(size: 14, weight: .bold))
-                                .foregroundStyle(appState.colorTheme.activeGradient(for: detector.currentTrack.accentColor))
-                                .shadow(color: detector.currentTrack.accentColor.opacity(0.4), radius: 6)
+                                .font(appState.fontChoice.font(size: 14, weight: .bold, sectionName: line.sectionName))
+                                .foregroundStyle(appState.colorTheme.activeGradient(for: palette))
+                                .shadow(color: palette.accent.opacity(0.4), radius: 6)
                                 .lineLimit(1)
                         }
                     } else {
@@ -68,7 +81,7 @@ public struct NotchIslandView: View {
                 // Mini Waveform
                 AudioVisualizerView(
                     levels: Array(appState.spectrumLevels.prefix(10)),
-                    accentColor: detector.currentTrack.accentColor,
+                    accentColor: palette.accent,
                     barWidth: 2,
                     spacing: 1.5,
                     maxHeight: 12
@@ -113,7 +126,7 @@ public struct NotchIslandView: View {
                                 .font(.system(size: 8, weight: .heavy, design: .rounded))
                                 .foregroundColor(.white.opacity(0.4))
                             Text(next.text)
-                                .font(appState.fontChoice.font(size: 12, weight: .medium))
+                                .font(appState.fontChoice.font(size: 12, weight: .medium, sectionName: next.sectionName))
                                 .foregroundColor(.white.opacity(0.6))
                                 .lineLimit(1)
                             Spacer()
@@ -131,7 +144,13 @@ public struct NotchIslandView: View {
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.2))
                                 Capsule()
-                                    .fill(detector.currentTrack.accentColor)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [palette.primary, palette.accent],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
                                     .frame(width: geo.size.width * CGFloat(detector.currentTrack.progress))
                             }
                         }
@@ -150,12 +169,12 @@ public struct NotchIslandView: View {
         .background(
             Capsule(style: .continuous)
                 .fill(.ultraThinMaterial)
-                .background(Capsule().fill(Color.black.opacity(0.85)))
+                .background(Capsule().fill(palette.backgroundDark.opacity(0.9)))
                 .overlay(
                     Capsule(style: .continuous)
                         .stroke(
                             LinearGradient(
-                                colors: [Color.white.opacity(0.3), detector.currentTrack.accentColor.opacity(0.4), Color.clear],
+                                colors: [Color.white.opacity(0.35), palette.accent.opacity(0.45), Color.clear],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
@@ -163,8 +182,9 @@ public struct NotchIslandView: View {
                         )
                 )
                 .shadow(color: Color.black.opacity(0.6), radius: 15, x: 0, y: 8)
+                .shadow(color: palette.accent.opacity(0.2), radius: 12, x: 0, y: 4)
         )
-        .frame(width: isHovered ? 480 : 440)
+        .frame(width: isHovered ? 490 : 440)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isHovered)
         .onHover { hovering in
             isHovered = hovering

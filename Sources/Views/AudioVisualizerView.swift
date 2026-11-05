@@ -32,3 +32,4 @@ public struct AudioVisualizerView: View {
         }
     }
 }
+
