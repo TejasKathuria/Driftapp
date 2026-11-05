@@ -85,17 +85,14 @@ public struct LyricLine: Identifiable, Equatable {
             tokens = rawWords
         }
         
-        let totalDuration = max(endTime - startTime, 1.2)
+        let totalDuration = max(endTime - startTime, 1.0)
         let tokenCount = tokens.count
         let averageTimePerToken = totalDuration / Double(tokenCount)
-        
-        // Auto-detect slow ballads / emotional verses:
-        // In slow songs or Hindi/ballad tracks, lines last 5-8s with only 4-6 words (>0.85s/word).
         let isBalladTempo = averageTimePerToken >= 0.85
         
         // Calculate weighted presence:
         // 1. Script/syllable weight: Give non-Latin / Devanagari words higher base weight
-        // 2. The final word in a line almost always has vocal vibrato / sustain (give it 1.6x - 2.0x weight)
+        // 2. The final word in a line almost always has vocal vibrato / sustain
         var weights: [Double] = []
         for (i, token) in tokens.enumerated() {
             var w = Double(max(token.count, 2))
@@ -108,37 +105,28 @@ public struct LyricLine: Identifiable, Equatable {
             
             // Final word sustain weight
             if i == tokenCount - 1 && tokenCount > 1 {
-                w *= (isBalladTempo ? 2.0 : 1.5)
+                w *= (isBalladTempo ? 1.8 : 1.35)
             }
             
             weights.append(w)
         }
         
-        let totalWeight = max(weights.reduce(0, +), 1.0)
+        let sumWeights = max(weights.reduce(0, +), 1.0)
         
         var words: [TimedWord] = []
         var runningTime = startTime
         
-        // Allocate full line duration proportionally
+        // Proportionally distribute totalDuration so sum(durations) == totalDuration ALWAYS!
         for (index, token) in tokens.enumerated() {
-            let normalizedWeight = weights[index] / totalWeight
-            var tokenDuration = totalDuration * normalizedWeight
-            
-            // Apply pacing speed multiplier (e.g. 0.8x for slower, 1.2x for faster)
-            tokenDuration = tokenDuration / max(speedMultiplier, 0.4)
-            
-            // Minimum reading presence based on tempo:
-            // Ballad tempo guarantees words linger for at least 0.80s!
-            let minPresence = isBalladTempo ? min(1.10, averageTimePerToken * 0.70) : min(0.60, averageTimePerToken)
-            tokenDuration = max(tokenDuration, minPresence)
-            
-            let tokenEnd = (index == tokenCount - 1) ? endTime : min(runningTime + tokenDuration, endTime)
+            let fraction = weights[index] / sumWeights
+            let tokenDuration = totalDuration * fraction
+            let tokenEnd = (index == tokenCount - 1) ? endTime : (runningTime + tokenDuration)
             
             words.append(TimedWord(
                 id: index,
                 text: token,
                 startTime: runningTime,
-                endTime: max(tokenEnd, runningTime + 0.50)
+                endTime: tokenEnd
             ))
             runningTime = tokenEnd
         }

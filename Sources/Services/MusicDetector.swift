@@ -68,48 +68,68 @@ public final class MusicDetector: ObservableObject {
             return
         }
         
-        // Try Spotify first if preferred or auto
-        if preferredSource == .auto || preferredSource == .spotify {
-            if let spotifyInfo = querySpotify() {
-                updateWithTrackInfo(spotifyInfo, source: .spotify)
-                return
-            }
+        let spotifyInfo = (preferredSource == .auto || preferredSource == .spotify) ? querySpotify() : nil
+        let musicInfo = (preferredSource == .auto || preferredSource == .appleMusic) ? queryAppleMusic() : nil
+        
+        // Priority 1: Which player is ACTUALLY PLAYING right now?
+        if let sInfo = spotifyInfo, sInfo.isPlaying {
+            updateWithTrackInfo(sInfo, source: .spotify)
+            return
+        }
+        if let mInfo = musicInfo, mInfo.isPlaying {
+            updateWithTrackInfo(mInfo, source: .appleMusic)
+            return
         }
         
-        // Try Apple Music
-        if preferredSource == .auto || preferredSource == .appleMusic {
-            if let musicInfo = queryAppleMusic() {
-                updateWithTrackInfo(musicInfo, source: .appleMusic)
-                return
-            }
+        // Priority 2: If neither is playing, pick preferred source or whichever has an active track
+        if preferredSource == .spotify, let sInfo = spotifyInfo {
+            updateWithTrackInfo(sInfo, source: .spotify)
+            return
+        }
+        if preferredSource == .appleMusic, let mInfo = musicInfo {
+            updateWithTrackInfo(mInfo, source: .appleMusic)
+            return
+        }
+        if let sInfo = spotifyInfo, !sInfo.title.isEmpty {
+            updateWithTrackInfo(sInfo, source: .spotify)
+            return
+        }
+        if let mInfo = musicInfo, !mInfo.title.isEmpty {
+            updateWithTrackInfo(mInfo, source: .appleMusic)
+            return
         }
         
         // If nothing playing and was auto, keep last known or fallback to demo if uninitialized
         if currentTrack.title == "No Song Playing" && preferredSource == .auto {
-            // Load demo by default so the user sees a gorgeous live display immediately
             loadDemoTrack(index: 0, autoPlay: false)
         }
     }
     
     private func updateWithTrackInfo(_ info: PlayerInfo, source: MusicSource) {
         let now = CACurrentMediaTime()
-        lastSampleRealTime = now
         
-        // Auto latency compensation: Apple Music has ~0.52s AppleScript IPC lag relative to speaker audio
-        let latencyCompensation = (source == .appleMusic) ? 0.52 : 0.0
-        let compensatedPosition = info.position + latencyCompensation
+        // Apple Music AppleScript IPC transit latency is ~0.45s relative to speaker audio
+        let latencyCompensation = (source == .appleMusic) ? 0.45 : 0.0
+        let truePosition = info.position + latencyCompensation
         
         let changedSong = currentTrack.title != info.title || currentTrack.artist != info.artist
         
-        // Monotonic Clock Protection:
-        // Polling AppleScript can report truncated/jittery seconds (e.g. 24.0 after interpolated reached 24.4).
-        // Never allow playback clock to snap backwards during normal playback unless user explicitly seeked (>1.5s jump).
+        // Phase-Locked Loop (PLL) Clock Alignment:
+        // When song changes, pauses, or user seeks (|diff| > 1.2s), snap immediately to ground truth.
+        // During continuous playback, gently nudge clock by 30% of drift every second.
+        // This eliminates micro-drift completely while keeping playback buttery smooth!
         let currentPos = currentTrack.position
-        let diff = compensatedPosition - currentPos
-        let isBackwardJitter = (!changedSong && currentTrack.isPlaying && diff < 0 && diff > -1.5)
+        let diff = truePosition - currentPos
         
-        let stablePosition = isBackwardJitter ? currentPos : compensatedPosition
-        lastReportedPosition = stablePosition
+        let syncedPosition: TimeInterval
+        if changedSong || !info.isPlaying || abs(diff) > 1.2 {
+            syncedPosition = truePosition
+        } else {
+            syncedPosition = currentPos + (diff * 0.30)
+        }
+        
+        lastReportedPosition = syncedPosition
+        lastSampleRealTime = now
         
         var currentPalette = currentTrack.palette
         if changedSong {
@@ -122,7 +142,7 @@ public final class MusicDetector: ObservableObject {
             artist: info.artist,
             album: info.album,
             duration: info.duration,
-            position: stablePosition,
+            position: syncedPosition,
             isPlaying: info.isPlaying,
             source: source,
             artworkURL: info.artworkURL,
