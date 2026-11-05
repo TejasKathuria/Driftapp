@@ -5,8 +5,6 @@ public struct ImmersiveStudioView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var detector = MusicDetector.shared
     
-    @State private var wavePhase: Double = 0
-    @State private var timer: Timer?
     @State private var showControls: Bool = false
     @State private var hideControlsTimer: Timer?
     @State private var eventMonitor: Any?
@@ -41,7 +39,7 @@ public struct ImmersiveStudioView: View {
                         currentPosition: currentPos,
                         palette: detector.currentTrack.palette,
                         fontChoice: appState.fontChoice,
-                        wavePhase: wavePhase,
+                        wavePhase: 0,
                         onSeek: {
                             detector.seek(to: currentLine.startTime)
                         }
@@ -174,12 +172,9 @@ public struct ImmersiveStudioView: View {
             triggerControlsVisibility()
         }
         .onAppear {
-            startAnimation()
             setupKeyboardMonitor()
         }
         .onDisappear {
-            timer?.invalidate()
-            timer = nil
             hideControlsTimer?.invalidate()
             hideControlsTimer = nil
             if let monitor = eventMonitor {
@@ -195,14 +190,6 @@ public struct ImmersiveStudioView: View {
         hideControlsTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
             withAnimation(.easeOut(duration: 0.3)) {
                 showControls = false
-            }
-        }
-    }
-    
-    private func startAnimation() {
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-            if detector.currentTrack.isPlaying {
-                wavePhase += 0.04
             }
         }
     }

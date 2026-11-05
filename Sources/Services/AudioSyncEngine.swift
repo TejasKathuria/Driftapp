@@ -78,10 +78,14 @@ public final class AudioSyncEngine: ObservableObject {
             }
         }
         
-        smoothedEnergy = smoothedEnergy * 0.75 + rms * 0.25
+        smoothedEnergy = smoothedEnergy * 0.85 + rms * 0.15
         
-        DispatchQueue.main.async {
-            self.currentRMS = rms
+        // Publish smoothed RMS value to prevent visual jitter in views
+        let dampedRMS = smoothedEnergy
+        if abs(dampedRMS - self.currentRMS) > 0.008 {
+            DispatchQueue.main.async {
+                self.currentRMS = dampedRMS
+            }
         }
     }
     
