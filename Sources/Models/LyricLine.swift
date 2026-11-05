@@ -57,15 +57,23 @@ public struct LyricLine: Identifiable, Equatable {
         let rawWords = text.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
         guard !rawWords.isEmpty else { return [] }
         
-        let totalDuration = max(endTime - startTime, 1.2)
+        let totalDuration = max(endTime - startTime, 1.0)
         let totalChars = max(rawWords.reduce(0) { $0 + max($1.count, 1) }, 1)
+        
+        // Natural Singing Cadence Model:
+        // Singing cadence typically articulates words at ~0.35s to 0.55s per word.
+        // We calculate the active articulation window and leave the remaining tail of the line
+        // as vocal sustain / instrumental hold for the final word.
+        let naturalVocalDuration = min(totalDuration * 0.85, Double(rawWords.count) * 0.48)
+        let effectiveDuration = max(naturalVocalDuration, min(totalDuration, Double(rawWords.count) * 0.32))
         
         var words: [TimedWord] = []
         var runningTime = startTime
         
         for (index, word) in rawWords.enumerated() {
             let weight = Double(max(word.count, 1)) / Double(totalChars)
-            let wordDur = totalDuration * weight
+            let wordDur = effectiveDuration * weight
+            // The final word extends until the end of the line (sustain / musical hold)
             let wordEnd = (index == rawWords.count - 1) ? endTime : (runningTime + wordDur)
             
             words.append(TimedWord(
@@ -74,7 +82,7 @@ public struct LyricLine: Identifiable, Equatable {
                 startTime: runningTime,
                 endTime: wordEnd
             ))
-            runningTime = wordEnd
+            runningTime = runningTime + wordDur
         }
         return words
     }

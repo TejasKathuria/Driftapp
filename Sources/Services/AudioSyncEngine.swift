@@ -13,7 +13,7 @@ public final class AudioSyncEngine: ObservableObject {
     private var audioEngine: AVAudioEngine?
     private var previousRMS: Float = 0
     private var smoothedEnergy: Float = 0
-    private let onsetThreshold: Float = 0.035
+    private let onsetThreshold: Float = 0.022
     
     private init() {
         startListening()
@@ -30,7 +30,7 @@ public final class AudioSyncEngine: ObservableObject {
             return
         }
         
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 512, format: format) { [weak self] buffer, _ in
             self?.processAudioBuffer(buffer)
         }
         
@@ -101,3 +101,4 @@ public final class AudioSyncEngine: ObservableObject {
         return currentPosition >= wordStartTime
     }
 }
+

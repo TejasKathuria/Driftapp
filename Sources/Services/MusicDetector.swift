@@ -95,8 +95,8 @@ public final class MusicDetector: ObservableObject {
         let now = CACurrentMediaTime()
         lastSampleRealTime = now
         
-        // Auto latency compensation: Apple Music has ~0.38s AppleScript IPC lag relative to speaker audio
-        let latencyCompensation = (source == .appleMusic) ? 0.38 : 0.0
+        // Auto latency compensation: Apple Music has ~0.52s AppleScript IPC lag relative to speaker audio
+        let latencyCompensation = (source == .appleMusic) ? 0.52 : 0.0
         let compensatedPosition = info.position + latencyCompensation
         lastReportedPosition = compensatedPosition
         

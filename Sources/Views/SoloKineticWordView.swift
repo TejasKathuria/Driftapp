@@ -48,9 +48,17 @@ public struct SoloKineticWordView: View {
                         )
                     )
             } else {
-                Text(line.text)
-                    .font(fontChoice.font(size: 54, weight: .black, sectionName: line.sectionName))
-                    .foregroundStyle(Color.white)
+                // Musical interlude / breathing dots before vocals begin
+                HStack(spacing: 14) {
+                    ForEach(0..<3, id: \.self) { dot in
+                        Circle()
+                            .fill(palette.accent.opacity(0.85))
+                            .frame(width: 14, height: 14)
+                            .shadow(color: palette.accent.opacity(0.8), radius: 10)
+                            .scaleEffect(sin(wavePhase * 3.5 + Double(dot) * 0.8) * 0.35 + 0.85)
+                    }
+                }
+                .frame(height: 120)
             }
             
             // Context Verse Subtitle (Soft & Clean without clutter)
@@ -110,11 +118,15 @@ public struct SoloKineticWordView: View {
     private func currentActiveWord(words: [TimedWord]) -> TimedWord? {
         guard !words.isEmpty else { return nil }
         
-        // Find word where currentPosition falls within its start & end time
+        // Before the line's vocals start (e.g. musical intro/pause)
+        if currentPosition < line.startTime - 0.25 {
+            return nil
+        }
+        
+        // Find word in real-time matching computer audio and cadence
         for (i, word) in words.enumerated() {
-            // Check acoustic audio onset for early vocal trigger
             if audioSync.isWordTriggered(wordStartTime: word.startTime, currentPosition: currentPosition) {
-                // If next word is already triggered by audio onset, advance to next
+                // If the next word is already triggered by sound/time, continue to next
                 if i + 1 < words.count && audioSync.isWordTriggered(wordStartTime: words[i + 1].startTime, currentPosition: currentPosition) {
                     continue
                 }
@@ -122,7 +134,7 @@ public struct SoloKineticWordView: View {
             }
         }
         
-        return words.first
+        return words.last
     }
     
     private func organicTilt(for text: String) -> Angle {
@@ -131,3 +143,4 @@ public struct SoloKineticWordView: View {
         return .degrees(angles[hash % angles.count])
     }
 }
+
