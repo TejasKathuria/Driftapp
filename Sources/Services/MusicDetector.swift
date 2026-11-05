@@ -53,7 +53,7 @@ public final class MusicDetector: ObservableObject {
         guard currentTrack.isPlaying else { return }
         let now = CACurrentMediaTime()
         let delta = now - lastSampleRealTime
-        if delta > 0 && delta < 2.0 {
+        if delta > 0 && delta < 10.0 {
             let interpolated = lastReportedPosition + delta
             if currentTrack.duration > 0 {
                 currentTrack.position = min(interpolated, currentTrack.duration)

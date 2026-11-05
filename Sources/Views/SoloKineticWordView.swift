@@ -191,15 +191,6 @@ public struct SoloKineticWordView: View {
             return
         }
         
-        // Anti-Jitter Monotonic Lock:
-        // Within the active verse line, only advance words forward.
-        // Prevents any backward word flickering when clock timers interpolate near word boundaries.
-        if let current = activeWord {
-            if resolved.id < current.id && currentPosition >= current.startTime - 0.4 {
-                return // Stay on current word, never flicker back!
-            }
-        }
-        
         if resolved.id != activeWord?.id || resolved.text != activeWord?.text {
             withAnimation(.spring(response: 0.58, dampingFraction: 0.74)) {
                 self.activeWord = resolved

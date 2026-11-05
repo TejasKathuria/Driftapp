@@ -44,6 +44,7 @@ public struct ImmersiveStudioView: View {
                             detector.seek(to: currentLine.startTime)
                         }
                     )
+                    .id(activeIdx)
                 } else {
                     // Empty state
                     VStack(spacing: 16) {
