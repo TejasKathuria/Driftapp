@@ -22,6 +22,54 @@ public enum DriftDisplayMode: String, CaseIterable, Identifiable {
         case .immersiveStudio: return "Fullscreen cinematic experience with living album-art fluid gradients & kinetic lyrics."
         }
     }
+    
+    public var shortName: String {
+        switch self {
+        case .floatingWidget: return "Floating Glass"
+        case .notchIsland: return "Notch Island"
+        case .immersiveStudio: return "Fullscreen"
+        }
+    }
+}
+
+public enum KineticAnimationStyle: String, CaseIterable, Identifiable {
+    case threeSlotReel = "3-Slot Kinetic Reel (CleanShot)"
+    case popPosterCanvas = "Pop Kinetic Posters (Banners & Wave)"
+    case staircaseCascade = "Staircase Cascade (CleanShot)"
+    case soloCinematicStream = "Solo Cinematic Stream (Stranger Things & 3D)"
+    
+    public var id: String { rawValue }
+    
+    public var displayName: String {
+        switch self {
+        case .threeSlotReel: return "3-Slot Reel"
+        case .popPosterCanvas: return "Pop Posters"
+        case .staircaseCascade: return "Staircase"
+        case .soloCinematicStream: return "Solo Stream"
+        }
+    }
+    
+    public var icon: String {
+        switch self {
+        case .threeSlotReel: return "list.bullet.below.rectangle"
+        case .popPosterCanvas: return "ticket.fill"
+        case .staircaseCascade: return "stairs"
+        case .soloCinematicStream: return "sparkles"
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .threeSlotReel:
+            return "CleanShot vertical roller: Previous word on top, hero tilted word in center, upcoming word below."
+        case .popPosterCanvas:
+            return "Pop poster canvas: Solid banner cards, corner musical notes (♪), undulating wave split, and diagonal kicks."
+        case .staircaseCascade:
+            return "CleanShot diagonal staircase: Cascading step words with bold punchy hero text and retro sparkle sticker."
+        case .soloCinematicStream:
+            return "Solo kinetic word: Cycles through Stranger Things creeping zoom, 3D somersault, and smoke dissolve."
+        }
+    }
 }
 
 public enum LyricFont: String, CaseIterable, Identifiable {

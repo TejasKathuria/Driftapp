@@ -7,6 +7,7 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
     private var floatingWindow: NSWindow?
     private var notchIslandWindow: NSWindow?
     private var immersiveWindow: NSWindow?
+    private var preferencesWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
     
@@ -19,6 +20,16 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         createFloatingWindow()
         createNotchIslandWindow()
         createImmersiveWindow()
+        
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            if AppState.shared.displayMode == .immersiveStudio, let screen = NSScreen.main ?? NSScreen.screens.first {
+                self?.immersiveWindow?.setFrame(screen.frame, display: true)
+            }
+        }
         
         switchMode(to: AppState.shared.displayMode)
     }
@@ -90,6 +101,21 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         modeParent.submenu = modesMenu
         menu.addItem(modeParent)
         
+        // Fullscreen Kinetic Animation Style Submenu
+        let stylesMenu = NSMenu()
+        for style in KineticAnimationStyle.allCases {
+            let item = NSMenuItem(title: style.rawValue, action: #selector(kineticStyleSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = style
+            if style == AppState.shared.kineticStyle {
+                item.state = .on
+            }
+            stylesMenu.addItem(item)
+        }
+        let styleParent = NSMenuItem(title: "Kinetic Lyric Style", action: nil, keyEquivalent: "")
+        styleParent.submenu = stylesMenu
+        menu.addItem(styleParent)
+        
         // Click-through Toggle
         let clickThroughItem = NSMenuItem(title: "Click-Through Mode", action: #selector(toggleClickThrough), keyEquivalent: "l")
         clickThroughItem.target = self
@@ -135,18 +161,34 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         }
     }
     
+    @objc private func kineticStyleSelected(_ sender: NSMenuItem) {
+        if let style = sender.representedObject as? KineticAnimationStyle {
+            AppState.shared.kineticStyle = style
+        }
+    }
+    
     @objc private func openPreferences() {
+        if let existing = preferencesWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
         let settingsView = SettingsView()
         let hostingController = NSHostingController(rootView: settingsView)
         let prefWindow = NSWindow(contentViewController: hostingController)
-        prefWindow.title = "Drift Settings"
-        prefWindow.styleMask = [.titled, .closable]
+        prefWindow.title = "Drift Preferences"
+        prefWindow.styleMask = [.titled, .closable, .miniaturizable]
+        prefWindow.isReleasedWhenClosed = false
         prefWindow.center()
         prefWindow.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        
+        self.preferencesWindow = prefWindow
     }
     
     @objc private func quitApp() {
+        NSApp.presentationOptions = []
         NSApplication.shared.terminate(nil)
     }
     
@@ -212,18 +254,21 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         let contentView = ImmersiveStudioView()
         let hosting = NSHostingController(rootView: contentView)
         
-        guard let screen = NSScreen.main else { return }
-        let window = NSWindow(
-            contentRect: screen.frame,
+        let screen = NSScreen.main ?? NSScreen.screens.first
+        let frame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
+        let window = FullscreenImmersiveWindow(
+            contentRect: frame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
         window.contentViewController = hosting
-        window.backgroundColor = .clear
+        window.backgroundColor = .black
         window.isOpaque = true
-        window.level = .floating
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenPrimary]
+        window.hasShadow = false
+        window.level = .screenSaver
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        window.hidesOnDeactivate = false
         
         self.immersiveWindow = window
     }
@@ -237,15 +282,23 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         
         switch mode {
         case .floatingWidget:
+            NSApp.presentationOptions = []
             floatingWindow?.makeKeyAndOrderFront(nil)
             floatingWindow?.ignoresMouseEvents = AppState.shared.isClickThrough
         case .notchIsland:
+            NSApp.presentationOptions = []
             notchIslandWindow?.makeKeyAndOrderFront(nil)
             notchIslandWindow?.ignoresMouseEvents = false
         case .immersiveStudio:
-            if let screen = NSScreen.main {
-                immersiveWindow?.setFrame(screen.frame, display: true)
+            if let targetScreen = NSScreen.main ?? NSScreen.screens.first {
+                immersiveWindow?.setFrame(targetScreen.frame, display: true)
             }
+            NSApp.presentationOptions = [
+                .autoHideMenuBar,
+                .autoHideDock,
+                .fullScreen
+            ]
+            immersiveWindow?.level = .screenSaver
             immersiveWindow?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -258,4 +311,11 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
     public func updateAlwaysOnTop(_ enabled: Bool) {
         floatingWindow?.level = enabled ? .floating : .normal
     }
+}
+
+// MARK: - Key & Main Capable Borderless Fullscreen Window
+
+final class FullscreenImmersiveWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }

@@ -5,6 +5,7 @@ public final class AppState: ObservableObject {
     public static let shared = AppState()
     
     @Published public var displayMode: DriftDisplayMode = .floatingWidget
+    @Published public var kineticStyle: KineticAnimationStyle = .threeSlotReel
     @Published public var fontChoice: LyricFont = .rounded
     @Published public var fontSize: CGFloat = 26
     @Published public var colorTheme: DriftColorTheme = .dynamicArtwork

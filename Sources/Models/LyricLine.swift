@@ -15,6 +15,21 @@ public struct TimedWord: Identifiable, Equatable {
     }
 }
 
+public struct TimedPhraseSegment: Identifiable, Equatable {
+    public let id: Int
+    public let words: [TimedWord]
+    
+    public var text: String {
+        words.map { $0.text }.joined(separator: " ")
+    }
+    public var startTime: TimeInterval {
+        words.first?.startTime ?? 0
+    }
+    public var endTime: TimeInterval {
+        words.last?.endTime ?? 0
+    }
+}
+
 public struct LyricLine: Identifiable, Equatable {
     public let id: UUID
     public let startTime: TimeInterval
@@ -131,6 +146,34 @@ public struct LyricLine: Identifiable, Equatable {
             runningTime = tokenEnd
         }
         return words
+    }
+    
+    public func timedPhraseSegments(speedMultiplier: Double = 1.0) -> [TimedPhraseSegment] {
+        let words = timedWords(speedMultiplier: speedMultiplier, chunkPhrases: false)
+        guard !words.isEmpty else { return [] }
+        
+        var segments: [TimedPhraseSegment] = []
+        var segmentId = 0
+        let totalCount = words.count
+        var i = 0
+        
+        while i < totalCount {
+            let remaining = totalCount - i
+            let chunkSize: Int
+            if remaining == 4 {
+                chunkSize = 2 // 2 + 2 instead of 3 + 1
+            } else if remaining >= 3 {
+                chunkSize = 3
+            } else {
+                chunkSize = remaining
+            }
+            
+            let chunk = Array(words[i..<(i + chunkSize)])
+            segments.append(TimedPhraseSegment(id: segmentId, words: chunk))
+            segmentId += 1
+            i += chunkSize
+        }
+        return segments
     }
     
     public var formattedStartTime: String {

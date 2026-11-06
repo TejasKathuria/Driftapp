@@ -69,9 +69,37 @@ public struct ImmersiveStudioView: View {
             
             // 3. Auto-Hiding Minimal Controls (Fades out when mouse is idle)
             VStack {
-                // Top Exit Button Bar
-                HStack {
+                // Top Exit & Style Switcher Bar
+                HStack(spacing: 12) {
                     Spacer()
+                    
+                    // Style Switcher Pill
+                    Button(action: {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                            let all = KineticAnimationStyle.allCases
+                            if let idx = all.firstIndex(of: appState.kineticStyle) {
+                                let nextIdx = (idx + 1) % all.count
+                                appState.kineticStyle = all[nextIdx]
+                            }
+                        }
+                    }) {
+                        HStack(spacing: 7) {
+                            Image(systemName: appState.kineticStyle.icon)
+                            Text("Style: \(styleShortName(appState.kineticStyle))")
+                        }
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.92))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                        )
+                        .shadow(color: Color.black.opacity(0.4), radius: 10)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Exit Fullscreen Button
                     Button(action: {
                         exitFullscreen()
                     }) {
@@ -214,5 +242,14 @@ public struct ImmersiveStudioView: View {
     private func exitFullscreen() {
         appState.displayMode = .floatingWidget
         WindowManager.shared.switchMode(to: .floatingWidget)
+    }
+    
+    private func styleShortName(_ style: KineticAnimationStyle) -> String {
+        switch style {
+        case .threeSlotReel: return "3-Slot Reel"
+        case .popPosterCanvas: return "Pop Posters"
+        case .staircaseCascade: return "Staircase"
+        case .soloCinematicStream: return "Solo Cinematic"
+        }
     }
 }
