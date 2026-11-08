@@ -12,9 +12,11 @@ public final class MusicDetector: ObservableObject {
     @Published public var syncOffset: Double = 0.0 // Manual offset in seconds
     @Published public var isInteractivityLocked: Bool = false // Click-through mode
     
-    // High-resolution clock
+    // High-resolution monotonic anchor clock
     private var pollTimer: Timer?
     private var highFreqTimer: Timer?
+    private var anchorPosition: TimeInterval = 0
+    private var anchorMediaTime: TimeInterval = 0
     private var lastSampleRealTime: TimeInterval = 0
     private var lastReportedPosition: TimeInterval = 0
     
@@ -22,6 +24,7 @@ public final class MusicDetector: ObservableObject {
     private var demoIndex: Int = 0
     
     public init() {
+        anchorMediaTime = CACurrentMediaTime()
         startTracking()
     }
     
@@ -52,14 +55,16 @@ public final class MusicDetector: ObservableObject {
     private func interpolatePlaybackTime() {
         guard currentTrack.isPlaying else { return }
         let now = CACurrentMediaTime()
-        let delta = now - lastSampleRealTime
-        if delta > 0 && delta < 10.0 {
-            let interpolated = lastReportedPosition + delta
+        let elapsed = now - anchorMediaTime
+        if elapsed >= 0 && elapsed < 7200.0 {
+            let interpolated = anchorPosition + elapsed
             if currentTrack.duration > 0 {
                 currentTrack.position = min(interpolated, currentTrack.duration)
             } else {
                 currentTrack.position = interpolated
             }
+            lastReportedPosition = currentTrack.position
+            lastSampleRealTime = now
         }
     }
     
@@ -107,50 +112,30 @@ public final class MusicDetector: ObservableObject {
     
     private func updateWithTrackInfo(_ info: PlayerInfo, source: MusicSource) {
         let now = CACurrentMediaTime()
-        
-        // Apple Music AppleScript IPC transit latency is ~0.45s relative to speaker audio
-        let latencyCompensation = (source == .appleMusic) ? 0.45 : 0.0
-        let truePosition = info.position + latencyCompensation
-        
         let changedSong = currentTrack.title != info.title || currentTrack.artist != info.artist
         
-        // Phase-Locked Loop (PLL) Clock Alignment:
-        // When song changes, pauses, or user seeks (|diff| > 1.2s), snap immediately to ground truth.
-        // During continuous playback, gently nudge clock by 30% of drift every second.
-        // This eliminates micro-drift completely while keeping playback buttery smooth!
-        let currentPos = currentTrack.position
-        let diff = truePosition - currentPos
-        
-        let syncedPosition: TimeInterval
-        if changedSong || !info.isPlaying || abs(diff) > 1.2 {
-            syncedPosition = truePosition
-        } else {
-            syncedPosition = currentPos + (diff * 0.30)
-        }
-        
-        lastReportedPosition = syncedPosition
-        lastSampleRealTime = now
-        
-        var currentPalette = currentTrack.palette
         if changedSong {
-            currentPalette = ColorExtractor.defaultPaletteForDemo(title: info.title, artist: info.artist)
-        }
-        
-        currentTrack = Track(
-            id: "\(info.artist)-\(info.title)",
-            title: info.title,
-            artist: info.artist,
-            album: info.album,
-            duration: info.duration,
-            position: syncedPosition,
-            isPlaying: info.isPlaying,
-            source: source,
-            artworkURL: info.artworkURL,
-            artworkImage: changedSong ? nil : currentTrack.artworkImage,
-            palette: currentPalette
-        )
-        
-        if changedSong {
+            anchorPosition = info.position
+            anchorMediaTime = now
+            lastReportedPosition = info.position
+            lastSampleRealTime = now
+            
+            let currentPalette = ColorExtractor.defaultPaletteForDemo(title: info.title, artist: info.artist)
+            currentTrack = Track(
+                id: "\(info.artist)-\(info.title)",
+                title: info.title,
+                artist: info.artist,
+                album: info.album,
+                duration: info.duration,
+                position: info.position,
+                isPlaying: info.isPlaying,
+                source: source,
+                artworkURL: info.artworkURL,
+                artworkImage: nil,
+                palette: currentPalette,
+                embeddedLyrics: info.lyrics
+            )
+            
             let trackToFetch = currentTrack
             Task {
                 let (data, palette) = await ArtworkService.shared.fetchArtworkDataAndPalette(for: trackToFetch)
@@ -163,6 +148,48 @@ public final class MusicDetector: ObservableObject {
                     }
                 }
             }
+            return
+        }
+        
+        // Handle playback state transitions (play / pause)
+        if currentTrack.isPlaying != info.isPlaying {
+            currentTrack.isPlaying = info.isPlaying
+            anchorPosition = info.position
+            anchorMediaTime = now
+            currentTrack.position = info.position
+            lastReportedPosition = info.position
+            lastSampleRealTime = now
+            return
+        }
+        
+        if info.isPlaying {
+            // Anchor Monotonic Clock:
+            // Calculate what our continuous hardware-interpolated position should be right now
+            let expectedPosition = anchorPosition + (now - anchorMediaTime)
+            let drift = info.position - expectedPosition
+            
+            // If drift > 0.85s, the user actively sought or scrubbed in the player: snap immediately!
+            if abs(drift) > 0.85 {
+                anchorPosition = info.position
+                anchorMediaTime = now
+                currentTrack.position = info.position
+                lastReportedPosition = info.position
+                lastSampleRealTime = now
+            } else if abs(drift) > 0.20 {
+                // Micro-slew: adjust anchor very gently without jerking or micro-jumping
+                anchorPosition += drift * 0.05
+            }
+            
+            if currentTrack.duration != info.duration && info.duration > 0 {
+                currentTrack.duration = info.duration
+            }
+        } else {
+            // Stationary when paused
+            anchorPosition = info.position
+            anchorMediaTime = now
+            currentTrack.position = info.position
+            lastReportedPosition = info.position
+            lastSampleRealTime = now
         }
     }
     
@@ -170,6 +197,12 @@ public final class MusicDetector: ObservableObject {
     
     public func syncWithAcousticOffset(_ acousticOffset: TimeInterval, detectedTitle: String?, detectedArtist: String?) {
         guard acousticOffset > 0 else { return }
+        
+        // If Spotify or Apple Music is actively playing, the local player clock is authoritative!
+        // ShazamKit acoustic matching must NEVER hijack or fight the player clock.
+        if currentTrack.isPlaying && (currentTrack.source == .spotify || currentTrack.source == .appleMusic) {
+            return
+        }
         
         // If no track is actively playing, use the acoustically detected song!
         if currentTrack.title == "No Song Playing", let title = detectedTitle, !title.isEmpty {
@@ -186,16 +219,20 @@ public final class MusicDetector: ObservableObject {
                 source: .auto,
                 palette: palette
             )
+            anchorPosition = acousticOffset
+            anchorMediaTime = CACurrentMediaTime()
             AppState.shared.fetchLyrics(for: currentTrack)
             return
         }
         
         let diff = acousticOffset - currentTrack.position
         
-        // If discrepancy is noticeable (>= 0.30s), steer position to acoustic verse
-        if abs(diff) >= 0.30 {
+        // Only adjust if discrepancy is major (>= 2.5s) in auto mode
+        if abs(diff) >= 2.5 {
+            anchorPosition = acousticOffset
+            anchorMediaTime = CACurrentMediaTime()
             lastReportedPosition = acousticOffset
-            lastSampleRealTime = CACurrentMediaTime()
+            lastSampleRealTime = anchorMediaTime
             currentTrack.position = acousticOffset
         }
     }
@@ -211,6 +248,7 @@ public final class MusicDetector: ObservableObject {
         let duration: Double
         let artworkURL: String?
         let artworkImage: NSImage?
+        let lyrics: String?
     }
     
     private func querySpotify() -> PlayerInfo? {
@@ -228,7 +266,7 @@ public final class MusicDetector: ObservableObject {
                     try
                         set art to artwork url of current track
                     end try
-                    return (isP as string) & "|||" & (pos as string) & "|||" & tName & "|||" & tArtist & "|||" & tAlbum & "|||" & (dur as string) & "|||" & art
+                    return (isP as string) & "|||" & (pos as string) & "|||" & tName & "|||" & tArtist & "|||" & tAlbum & "|||" & (dur as string) & "|||" & art & "|||" & ""
                 end if
             end tell
         end if
@@ -248,7 +286,11 @@ public final class MusicDetector: ObservableObject {
                     set tArtist to artist of current track
                     set tAlbum to album of current track
                     set dur to duration of current track
-                    return (isP as string) & "|||" & (pos as string) & "|||" & tName & "|||" & tArtist & "|||" & tAlbum & "|||" & (dur as string) & "|||"
+                    set lyr to ""
+                    try
+                        set lyr to lyrics of current track
+                    end try
+                    return (isP as string) & "|||" & (pos as string) & "|||" & tName & "|||" & tArtist & "|||" & tAlbum & "|||" & (dur as string) & "|||" & "" & "|||" & lyr
                 end if
             end tell
         end if
@@ -275,7 +317,8 @@ public final class MusicDetector: ObservableObject {
         let artist = parts[3]
         let album = parts[4]
         let dur = Double(parts[5]) ?? 0
-        let art = parts.count > 6 ? parts[6] : nil
+        let art = parts.count > 6 && !parts[6].isEmpty ? parts[6] : nil
+        let lyr = parts.count > 7 ? parts.suffix(from: 7).joined(separator: "|||").trimmingCharacters(in: .whitespacesAndNewlines) : nil
         
         return PlayerInfo(
             isPlaying: isPlaying,
@@ -284,8 +327,9 @@ public final class MusicDetector: ObservableObject {
             artist: artist,
             album: album,
             duration: dur,
-            artworkURL: art?.isEmpty == false ? art : nil,
-            artworkImage: nil
+            artworkURL: art,
+            artworkImage: nil,
+            lyrics: (lyr?.isEmpty == false) ? lyr : nil
         )
     }
     
@@ -301,10 +345,14 @@ public final class MusicDetector: ObservableObject {
     }
     
     public func togglePlayPause() {
+        let now = CACurrentMediaTime()
+        currentTrack.isPlaying.toggle()
+        anchorPosition = currentTrack.position
+        anchorMediaTime = now
+        lastSampleRealTime = now
+        lastReportedPosition = currentTrack.position
+        
         if preferredSource == .demo {
-            currentTrack.isPlaying.toggle()
-            lastSampleRealTime = CACurrentMediaTime()
-            lastReportedPosition = currentTrack.position
             return
         }
         
@@ -313,16 +361,17 @@ public final class MusicDetector: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             NSAppleScript(source: script)?.executeAndReturnError(nil)
         }
-        currentTrack.isPlaying.toggle()
-        lastSampleRealTime = CACurrentMediaTime()
-        lastReportedPosition = currentTrack.position
     }
     
     public func seek(to seconds: Double) {
+        let now = CACurrentMediaTime()
+        currentTrack.position = seconds
+        anchorPosition = seconds
+        anchorMediaTime = now
+        lastSampleRealTime = now
+        lastReportedPosition = seconds
+        
         if preferredSource == .demo {
-            currentTrack.position = seconds
-            lastSampleRealTime = CACurrentMediaTime()
-            lastReportedPosition = seconds
             return
         }
         
@@ -331,9 +380,6 @@ public final class MusicDetector: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             NSAppleScript(source: script)?.executeAndReturnError(nil)
         }
-        currentTrack.position = seconds
-        lastSampleRealTime = CACurrentMediaTime()
-        lastReportedPosition = seconds
     }
     
     public func nextTrack() {
@@ -378,7 +424,10 @@ public final class MusicDetector: ObservableObject {
         let durations: [Double] = [200, 355, 242, 390]
         let dur = index < durations.count ? durations[index] : 210.0
         
-        lastSampleRealTime = CACurrentMediaTime()
+        let now = CACurrentMediaTime()
+        anchorPosition = 0
+        anchorMediaTime = now
+        lastSampleRealTime = now
         lastReportedPosition = 0
         
         let palette = ColorExtractor.defaultPaletteForDemo(title: demo.title, artist: demo.artist)

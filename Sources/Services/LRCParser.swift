@@ -12,14 +12,11 @@ public struct ParsedLyrics {
     public func activeLineIndex(for time: TimeInterval) -> Int? {
         guard !lines.isEmpty else { return nil }
         
-        // Find line where time falls between startTime and endTime
-        for (index, line) in lines.enumerated() {
-            if time >= line.startTime && time < line.endTime {
-                return index
-            }
+        if time < lines[0].startTime {
+            return nil
         }
         
-        // Fallback: If after start of first line, find the latest line that started before current time
+        // Active line is the latest line whose startTime is <= current playback time
         for index in (0..<lines.count).reversed() {
             if time >= lines[index].startTime {
                 return index
@@ -153,10 +150,12 @@ public enum LRCParser {
         for i in 0..<lines.count {
             if i + 1 < lines.count {
                 let nextStart = lines[i + 1].startTime
-                // Max gap: if next line is 15 seconds away, cap active duration to 8s
-                let maxDuration: TimeInterval = 8.0
-                let calculatedEnd = min(nextStart, lines[i].startTime + maxDuration)
-                lines[i].endTime = max(calculatedEnd, lines[i].startTime + 1.5)
+                if nextStart > lines[i].startTime {
+                    let gap = nextStart - lines[i].startTime
+                    lines[i].endTime = lines[i].startTime + min(gap, 8.0)
+                } else {
+                    lines[i].endTime = lines[i].startTime + 1.0
+                }
             } else {
                 // Last line lasts 5 seconds
                 lines[i].endTime = lines[i].startTime + 5.0

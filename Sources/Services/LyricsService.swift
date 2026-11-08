@@ -34,7 +34,19 @@ public actor LyricsService {
             return parsed
         }
         
-        // 4. Query LRCLIB API
+        // 4. Check Apple Music embedded lyrics if available
+        if let embedded = track.embeddedLyrics, !embedded.isEmpty {
+            if embedded.contains("[") && (embedded.contains(":") || embedded.contains(".")) {
+                let parsed = LRCParser.parse(embedded)
+                if !parsed.lines.isEmpty {
+                    memoryCache[cacheKey] = parsed
+                    saveToDisk(key: cacheKey, content: embedded)
+                    return parsed
+                }
+            }
+        }
+        
+        // 5. Query LRCLIB API with smart duration matching and title normalization
         if let remoteLRC = await fetchFromLRCLIB(track: track) {
             let parsed = LRCParser.parse(remoteLRC)
             if !parsed.lines.isEmpty {
@@ -47,60 +59,98 @@ public actor LyricsService {
         return nil
     }
     
+    public static func cleanTitle(_ title: String) -> String {
+        var cleaned = title
+        
+        // Strip parenthetical / bracketed tags (feat, ft, with, from, remaster, etc.)
+        let parenPattern = "\\s*[\\(\\[](?:feat\\.|ft\\.|with|from|remaster|remastered|deluxe|version|edition|live|radio edit|bonus track|acoustic|official|visualizer|audio|video)[^\\)\\]]*[\\)\\]]"
+        if let regex = try? NSRegularExpression(pattern: parenPattern, options: [.caseInsensitive]) {
+            let range = NSRange(location: 0, length: (cleaned as NSString).length)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "")
+        }
+        
+        // Strip trailing dash suffixes like " - 2013 Remaster", " - Remastered 2011", " - Single", " - Live"
+        let dashPattern = "\\s*-\\s*(?:(?:\\d{4}\\s+)?remaster|remastered|single|deluxe|live|radio edit|from|bonus track|acoustic|edit|version).*$"
+        if let regex = try? NSRegularExpression(pattern: dashPattern, options: [.caseInsensitive]) {
+            let range = NSRange(location: 0, length: (cleaned as NSString).length)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "")
+        }
+        
+        cleaned = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: " \"'“”’‘`").union(.whitespacesAndNewlines))
+        return cleaned.isEmpty ? title : cleaned
+    }
+    
+    public static func cleanArtist(_ artist: String) -> String {
+        let separators = [",", ";", "/", "&", " feat. ", " ft. ", " with "]
+        var primary = artist
+        for sep in separators {
+            if let first = primary.components(separatedBy: sep).first, !first.trimmingCharacters(in: .whitespaces).isEmpty {
+                primary = first
+                break
+            }
+        }
+        primary = primary.trimmingCharacters(in: .whitespacesAndNewlines)
+        return primary.isEmpty ? artist : primary
+    }
+    
     private func fetchFromLRCLIB(track: Track) async -> String? {
-        // Construct query parameters
+        let cleanT = Self.cleanTitle(track.title)
+        let cleanA = Self.cleanArtist(track.artist)
+        
+        // Strategy 1: Exact get with original title & artist
+        if let exact = await queryLRCLIBGet(title: track.title, artist: track.artist, album: track.album, duration: track.duration) {
+            return exact
+        }
+        
+        // Strategy 2: Exact get with normalized title & primary artist
+        if cleanT != track.title || cleanA != track.artist {
+            if let exactClean = await queryLRCLIBGet(title: cleanT, artist: cleanA, album: nil, duration: track.duration) {
+                return exactClean
+            }
+        }
+        
+        // Strategy 3: Targeted Search by track_name and artist_name with duration matching
+        if let searchMatch = await searchLRCLIBSmart(trackName: cleanT, artistName: cleanA, targetDuration: track.duration) {
+            return searchMatch
+        }
+        
+        // Strategy 4: Broad Search by query string with duration matching
+        if let broadMatch = await searchLRCLIBSmart(query: "\(cleanA) \(cleanT)", targetDuration: track.duration) {
+            return broadMatch
+        }
+        
+        return nil
+    }
+    
+    private func queryLRCLIBGet(
+        title: String,
+        artist: String,
+        album: String? = nil,
+        duration: TimeInterval = 0
+    ) async -> String? {
         var components = URLComponents(string: "https://lrclib.net/api/get")
         var queryItems: [URLQueryItem] = [
-            URLQueryItem(name: "track_name", value: track.title),
-            URLQueryItem(name: "artist_name", value: track.artist)
+            URLQueryItem(name: "track_name", value: title),
+            URLQueryItem(name: "artist_name", value: artist)
         ]
-        if !track.album.isEmpty {
-            queryItems.append(URLQueryItem(name: "album_name", value: track.album))
+        if let alb = album, !alb.isEmpty {
+            queryItems.append(URLQueryItem(name: "album_name", value: alb))
         }
-        if track.duration > 0 {
-            queryItems.append(URLQueryItem(name: "duration", value: String(Int(track.duration))))
+        if duration > 0 {
+            queryItems.append(URLQueryItem(name: "duration", value: String(Int(duration))))
         }
         components?.queryItems = queryItems
-        
         guard let url = components?.url else { return nil }
         
         var request = URLRequest(url: url)
         request.setValue("DriftLyrics/1.0 (https://github.com/macOS/Drift)", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 8.0
+        request.timeoutInterval = 7.0
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                     if let synced = json["syncedLyrics"] as? String, !synced.isEmpty {
-                        return synced
-                    } else if let plain = json["plainLyrics"] as? String, !plain.isEmpty {
-                        return generateLRCFromPlain(plain, duration: track.duration)
-                    }
-                }
-            }
-        } catch {
-            // Fallback to search endpoint
-        }
-        
-        // Fallback search
-        return await searchLRCLIB(query: "\(track.artist) \(track.title)")
-    }
-    
-    private func searchLRCLIB(query: String) async -> String? {
-        var components = URLComponents(string: "https://lrclib.net/api/search")
-        components?.queryItems = [URLQueryItem(name: "q", value: query)]
-        guard let url = components?.url else { return nil }
-        
-        var request = URLRequest(url: url)
-        request.setValue("DriftLyrics/1.0", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 8.0
-        
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                if let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]], let first = list.first {
-                    if let synced = first["syncedLyrics"] as? String, !synced.isEmpty {
                         return synced
                     }
                 }
@@ -111,22 +161,58 @@ public actor LyricsService {
         return nil
     }
     
-    private func generateLRCFromPlain(_ plain: String, duration: TimeInterval) -> String {
-        let lines = plain.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        guard !lines.isEmpty else { return "" }
+    private func searchLRCLIBSmart(
+        trackName: String? = nil,
+        artistName: String? = nil,
+        query: String? = nil,
+        targetDuration: TimeInterval
+    ) async -> String? {
+        var components = URLComponents(string: "https://lrclib.net/api/search")
+        var items: [URLQueryItem] = []
+        if let t = trackName, !t.isEmpty { items.append(URLQueryItem(name: "track_name", value: t)) }
+        if let a = artistName, !a.isEmpty { items.append(URLQueryItem(name: "artist_name", value: a)) }
+        if let q = query, !q.isEmpty { items.append(URLQueryItem(name: "q", value: q)) }
+        components?.queryItems = items
         
-        let interval = (duration > 0 ? duration : Double(lines.count * 4)) / Double(lines.count)
-        var result = ""
-        for (i, line) in lines.enumerated() {
-            let time = Double(i) * interval
-            let mins = Int(time) / 60
-            let secs = Int(time) % 60
-            let centis = Int((time.truncatingRemainder(dividingBy: 1)) * 100)
-            result += String(format: "[%02d:%02d.%02d]%@\n", mins, secs, centis, line)
+        guard let url = components?.url else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("DriftLyrics/1.0 (https://github.com/macOS/Drift)", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 7.0
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            guard let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+            
+            // Extract items that have non-empty synchronized lyrics
+            let candidates = list.compactMap { item -> (synced: String, duration: Double)? in
+                guard let synced = item["syncedLyrics"] as? String, !synced.isEmpty else { return nil }
+                let dur = item["duration"] as? Double ?? 0
+                return (synced: synced, duration: dur)
+            }
+            
+            guard !candidates.isEmpty else { return nil }
+            
+            // If targetDuration is known, find the candidate with the closest duration!
+            if targetDuration > 0 {
+                let sorted = candidates.sorted {
+                    abs($0.duration - targetDuration) < abs($1.duration - targetDuration)
+                }
+                
+                // If the closest candidate is within 8.0s of the track duration, use it
+                if let best = sorted.first, abs(best.duration - targetDuration) <= 8.0 {
+                    return best.synced
+                }
+                
+                // Return closest available candidate
+                return sorted.first?.synced
+            }
+            
+            return candidates.first?.synced
+        } catch {
+            return nil
         }
-        return result
     }
     
     private func safeFilename(for key: String) -> String {

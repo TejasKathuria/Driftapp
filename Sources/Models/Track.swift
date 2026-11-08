@@ -69,6 +69,7 @@ public struct Track: Equatable {
     public var artworkURL: String?
     public var artworkImage: NSImage?
     public var palette: ArtworkPalette
+    public var embeddedLyrics: String?
     
     public var accentColor: Color {
         palette.accent
@@ -85,7 +86,8 @@ public struct Track: Equatable {
         source: MusicSource = .auto,
         artworkURL: String? = nil,
         artworkImage: NSImage? = nil,
-        palette: ArtworkPalette = ArtworkPalette()
+        palette: ArtworkPalette = ArtworkPalette(),
+        embeddedLyrics: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -98,6 +100,7 @@ public struct Track: Equatable {
         self.artworkURL = artworkURL
         self.artworkImage = artworkImage
         self.palette = palette
+        self.embeddedLyrics = embeddedLyrics
     }
     
     public var formattedPosition: String {

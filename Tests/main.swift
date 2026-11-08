@@ -68,6 +68,35 @@ func runTests() {
     assert(timed[4].text == "नशा" && timed[4].endTime == 14.0, "Last word end should match line end")
     print("✅ Test 6 Passed: Natural vocal cadence word timing verified.")
     
+    // Test 7: Title & Artist Normalization
+    let dirtyTitle1 = "Tu Kya Jane (From \"Amar Singh Chamkila\")"
+    let cleanTitle1 = LyricsService.cleanTitle(dirtyTitle1)
+    assert(cleanTitle1 == "Tu Kya Jane", "Expected 'Tu Kya Jane', got '\(cleanTitle1)'")
+    
+    let dirtyTitle2 = "Hotel California - 2013 Remaster"
+    let cleanTitle2 = LyricsService.cleanTitle(dirtyTitle2)
+    assert(cleanTitle2 == "Hotel California", "Expected 'Hotel California', got '\(cleanTitle2)'")
+    
+    let dirtyTitle3 = "Starboy (feat. Daft Punk)"
+    let cleanTitle3 = LyricsService.cleanTitle(dirtyTitle3)
+    assert(cleanTitle3 == "Starboy", "Expected 'Starboy', got '\(cleanTitle3)'")
+    
+    let multiArtist = "A.R. Rahman, Yashika Sikka, Javed Ali"
+    let primaryArtist = LyricsService.cleanArtist(multiArtist)
+    assert(primaryArtist == "A.R. Rahman", "Expected 'A.R. Rahman', got '\(primaryArtist)'")
+    print("✅ Test 7 Passed: Smart title and artist normalization verified.")
+    
+    // Test 8: Strict Line Boundary Non-Overlap
+    let rapidLRC = """
+    [00:01.00]Line 1
+    [00:01.80]Line 2
+    [00:03.00]Line 3
+    """
+    let parsedRapid = LRCParser.parse(rapidLRC)
+    assert(parsedRapid.lines[0].endTime <= parsedRapid.lines[1].startTime, "Line 0 endTime must not exceed Line 1 startTime")
+    assert(parsedRapid.activeLineIndex(for: 1.8) == 1, "At 1.8s, Line 2 should be active")
+    print("✅ Test 8 Passed: Rapid lyric lines have non-overlapping boundaries.")
+    
     print("\n🎉 ALL TESTS PASSED SUCCESSFULLY! Drift is 100% accurate and ready.")
 }
 
