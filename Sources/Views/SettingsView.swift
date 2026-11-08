@@ -363,6 +363,33 @@ public struct SettingsView: View {
             // Lyrics Sync Calibration
             settingsSection(title: "ACOUSTIC SYNC CALIBRATION") {
                 VStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Text("Microphone:")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Text(audioSync.activeMicrophoneName)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 6, height: 6)
+                            Text("Headset Protected")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.green)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.green.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .padding(.vertical, 2)
+                    
                     Toggle("Live Acoustic Vocal Trigger (Computer Audio Beat Sync)", isOn: $audioSync.useAudioOnsetSync)
                         .font(.system(size: 12))
                     
