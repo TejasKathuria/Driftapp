@@ -15,9 +15,14 @@ public struct FloatingLyricsView: View {
     
     public var body: some View {
         ZStack {
-            // Living Album Cover Gradient Background
+            // 0. Base Window Drag Area for the entire floating card
+            WindowDragArea()
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            
+            // 1. Living Album Cover Gradient Background
             LivingGradientBackground(palette: detector.currentTrack.palette, opacity: appState.backgroundOpacity, showParticles: true)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .allowsHitTesting(false)
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .stroke(
@@ -37,11 +42,24 @@ public struct FloatingLyricsView: View {
                 .shadow(color: detector.currentTrack.palette.accent.opacity(0.25), radius: 25, x: 0, y: 10)
             
             VStack(spacing: 0) {
+                // Top Grab Handle Pill (Visual drag cue)
+                HStack {
+                    Spacer()
+                    Capsule()
+                        .fill(Color.white.opacity(0.25))
+                        .frame(width: 38, height: 4)
+                        .padding(.top, 8)
+                        .padding(.bottom, 2)
+                    Spacer()
+                }
+                .background(WindowDragArea())
+                
                 // Top Header: Song Info & Controls
                 headerView
                     .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.top, 6)
                     .padding(.bottom, 12)
+                    .background(WindowDragArea())
                 
                 Divider()
                     .background(Color.white.opacity(0.12))
@@ -59,6 +77,7 @@ public struct FloatingLyricsView: View {
                 bottomBarView
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
+                    .background(WindowDragArea())
             }
         }
         .frame(minWidth: 460, idealWidth: 520, minHeight: 500, idealHeight: 580)

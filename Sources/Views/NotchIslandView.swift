@@ -184,6 +184,7 @@ public struct NotchIslandView: View {
                 .shadow(color: Color.black.opacity(0.6), radius: 15, x: 0, y: 8)
                 .shadow(color: palette.accent.opacity(0.2), radius: 12, x: 0, y: 4)
         )
+        .background(WindowDragArea())
         .frame(width: isHovered ? 490 : 440)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isHovered)
         .onHover { hovering in

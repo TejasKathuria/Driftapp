@@ -214,7 +214,7 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         let contentView = FloatingLyricsView()
         let hosting = NSHostingController(rootView: contentView)
         
-        let window = NSWindow(
+        let window = DraggableFloatingWindow(
             contentRect: NSRect(x: 100, y: 100, width: 480, height: 540),
             styleMask: [.borderless, .resizable],
             backing: .buffered,
@@ -242,7 +242,7 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         let contentView = NotchIslandView()
         let hosting = NSHostingController(rootView: contentView)
         
-        let window = NSWindow(
+        let window = DraggableFloatingWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 160),
             styleMask: [.borderless],
             backing: .buffered,
@@ -379,7 +379,12 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
     }
 }
 
-// MARK: - Key & Main Capable Borderless Fullscreen Window
+// MARK: - Key & Main Capable Borderless Windows
+
+final class DraggableFloatingWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
 
 final class FullscreenImmersiveWindow: NSWindow {
     override var canBecomeKey: Bool { true }
