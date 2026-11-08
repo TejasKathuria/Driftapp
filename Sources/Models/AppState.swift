@@ -16,6 +16,10 @@ public final class AppState: ObservableObject {
     @Published public var karaokeProgressSweep: Bool = true
     @Published public var autoHideWhenPaused: Bool = false
     
+    // External Display Mirroring
+    @Published public var mirrorOnExternalDisplay: Bool = false
+    @Published public var connectedScreensCount: Int = NSScreen.screens.count
+    
     // Lyrics pacing & word flow
     @Published public var pacingSpeedMultiplier: Double = 1.0 // 0.6x (Ballad) to 1.4x (Pop)
     @Published public var usePhraseChunking: Bool = false     // Combines short particles (e.g. "to my", "पे चले")

@@ -73,6 +73,34 @@ public struct ImmersiveStudioView: View {
                 HStack(spacing: 12) {
                     Spacer()
                     
+                    // Mirror to External Display Pill
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            appState.mirrorOnExternalDisplay.toggle()
+                            WindowManager.shared.updateExternalDisplayMirroring()
+                        }
+                    }) {
+                        HStack(spacing: 7) {
+                            Image(systemName: appState.mirrorOnExternalDisplay ? "display.2" : "display")
+                            Text(appState.mirrorOnExternalDisplay ? "Mirroring: On" : "Mirror to External")
+                        }
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(appState.mirrorOnExternalDisplay ? detector.currentTrack.palette.accent : .white.opacity(0.92))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(appState.mirrorOnExternalDisplay ? detector.currentTrack.palette.accent.opacity(0.8) : Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.4), radius: 10)
+                    }
+                    .buttonStyle(.plain)
+                    .help(appState.mirrorOnExternalDisplay ? "Disable mirroring on external display" : "Mirror fullscreen on connected external displays")
+                    
                     // Style Switcher Pill
                     Button(action: {
                         withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {

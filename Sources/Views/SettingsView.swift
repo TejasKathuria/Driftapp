@@ -214,6 +214,50 @@ public struct SettingsView: View {
                     .padding(.top, 2)
             }
             
+            // External Display Mirroring Card
+            settingsSection(title: "EXTERNAL DISPLAY PRESENTATION", subtitle: "Mirror immersive fullscreen lyrics on secondary monitors or TVs") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Mirror Fullscreen on External Display", isOn: $appState.mirrorOnExternalDisplay)
+                        .onChange(of: appState.mirrorOnExternalDisplay) { _, _ in
+                            WindowManager.shared.updateExternalDisplayMirroring()
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                    
+                    let screens = NSScreen.screens
+                    HStack(spacing: 8) {
+                        Image(systemName: screens.count > 1 ? "display.2" : "display")
+                            .font(.system(size: 14))
+                            .foregroundColor(screens.count > 1 ? detector.currentTrack.palette.accent : .secondary)
+                        
+                        Text(screens.count > 1 
+                            ? "\(screens.count) Displays Detected (Ready to Mirror)" 
+                            : "1 Display Detected (Connect HDMI, AirPlay, or Sidecar to Mirror)")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    if screens.count > 1 {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(0..<screens.count, id: \.self) { idx in
+                                let scr = screens[idx]
+                                HStack {
+                                    Circle()
+                                        .fill(idx == 0 ? Color.green : detector.currentTrack.palette.accent)
+                                        .frame(width: 6, height: 6)
+                                    Text(idx == 0 ? "Main Display (\(Int(scr.frame.width))x\(Int(scr.frame.height)))" : "External Display \(idx) (\(Int(scr.frame.width))x\(Int(scr.frame.height)))")
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.black.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+            
             // Typography & Appearance Card
             settingsSection(title: "TYPOGRAPHY & VISUALS") {
                 VStack(spacing: 12) {

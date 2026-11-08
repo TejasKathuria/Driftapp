@@ -7,6 +7,7 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
     private var floatingWindow: NSWindow?
     private var notchIslandWindow: NSWindow?
     private var immersiveWindow: NSWindow?
+    private var externalImmersiveWindows: [NSWindow] = []
     private var preferencesWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
@@ -26,8 +27,12 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            if AppState.shared.displayMode == .immersiveStudio, let screen = NSScreen.main ?? NSScreen.screens.first {
-                self?.immersiveWindow?.setFrame(screen.frame, display: true)
+            AppState.shared.connectedScreensCount = NSScreen.screens.count
+            if AppState.shared.displayMode == .immersiveStudio {
+                if let screen = NSScreen.main ?? NSScreen.screens.first {
+                    self?.immersiveWindow?.setFrame(screen.frame, display: true)
+                }
+                self?.updateExternalDisplayMirroring()
             }
         }
         
@@ -122,6 +127,12 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         clickThroughItem.state = AppState.shared.isClickThrough ? .on : .off
         menu.addItem(clickThroughItem)
         
+        // Mirror on External Display Toggle
+        let mirrorItem = NSMenuItem(title: "Mirror Fullscreen on External Display", action: #selector(toggleMirrorOnExternalDisplay), keyEquivalent: "m")
+        mirrorItem.target = self
+        mirrorItem.state = AppState.shared.mirrorOnExternalDisplay ? .on : .off
+        menu.addItem(mirrorItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         // Preferences
@@ -152,6 +163,11 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
     @objc private func toggleClickThrough() {
         AppState.shared.isClickThrough.toggle()
         updateClickThrough(AppState.shared.isClickThrough)
+    }
+    
+    @objc private func toggleMirrorOnExternalDisplay() {
+        AppState.shared.mirrorOnExternalDisplay.toggle()
+        updateExternalDisplayMirroring()
     }
     
     @objc private func modeSelected(_ sender: NSMenuItem) {
@@ -279,6 +295,8 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
         floatingWindow?.orderOut(nil)
         notchIslandWindow?.orderOut(nil)
         immersiveWindow?.orderOut(nil)
+        externalImmersiveWindows.forEach { $0.orderOut(nil) }
+        externalImmersiveWindows.removeAll()
         
         switch mode {
         case .floatingWidget:
@@ -301,6 +319,54 @@ public final class WindowManager: NSObject, ObservableObject, NSMenuDelegate {
             immersiveWindow?.level = .screenSaver
             immersiveWindow?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            
+            updateExternalDisplayMirroring()
+        }
+    }
+    
+    public func updateExternalDisplayMirroring() {
+        guard AppState.shared.displayMode == .immersiveStudio else {
+            externalImmersiveWindows.forEach { $0.orderOut(nil) }
+            externalImmersiveWindows.removeAll()
+            return
+        }
+        
+        if AppState.shared.mirrorOnExternalDisplay {
+            let screens = NSScreen.screens
+            guard screens.count > 1 else {
+                externalImmersiveWindows.forEach { $0.orderOut(nil) }
+                externalImmersiveWindows.removeAll()
+                return
+            }
+            
+            let primaryScreen = NSScreen.main ?? screens.first
+            let secondaryScreens = screens.filter { $0 != primaryScreen }
+            
+            externalImmersiveWindows.forEach { $0.orderOut(nil) }
+            externalImmersiveWindows.removeAll()
+            
+            for screen in secondaryScreens {
+                let window = FullscreenImmersiveWindow(
+                    contentRect: screen.frame,
+                    styleMask: [.borderless],
+                    backing: .buffered,
+                    defer: false
+                )
+                window.contentViewController = NSHostingController(rootView: ImmersiveStudioView())
+                window.backgroundColor = .black
+                window.isOpaque = true
+                window.hasShadow = false
+                window.level = .screenSaver
+                window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+                window.hidesOnDeactivate = false
+                window.setFrame(screen.frame, display: true)
+                window.orderFront(nil)
+                
+                externalImmersiveWindows.append(window)
+            }
+        } else {
+            externalImmersiveWindows.forEach { $0.orderOut(nil) }
+            externalImmersiveWindows.removeAll()
         }
     }
     
